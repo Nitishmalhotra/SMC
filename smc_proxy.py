@@ -30,12 +30,13 @@ import time
 import threading
 import os
 import sys
+pip install -U yfinance
 
 # ─────────────────────────────────────────────────────
 # CONFIG — reads from environment variables first,
 #          falls back to hardcoded values for local use
 # ─────────────────────────────────────────────────────
-PORT       = int(os.environ.get('PORT',       8000))
+PORT       = int(os.environ.get('PORT',       10000))
 ANT_KEY    = os.environ.get('ANT_KEY',        '')   # Anthropic API key
 KITE_KEY   = os.environ.get('KITE_KEY',       '')   # Kite API key
 KITE_TOKEN = os.environ.get('KITE_TOKEN',     '')   # Kite access token
