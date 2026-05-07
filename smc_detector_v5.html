@@ -1,0 +1,1664 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>SMC Detector — Live</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=Syne:wght@700;800&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#07090f;--bg1:#0c1018;--bg2:#111827;--bg3:#1a2235;--bg4:#1e2a40;
+  --bdr:#1e2e44;--bdr2:#2d4060;
+  --G:#00e07a;--G2:#00b862;--Gbg:rgba(0,160,90,.08);
+  --R:#ff4060;--R2:#cc2244;--Rbg:rgba(255,50,80,.08);
+  --A:#f5a623;--Abg:rgba(200,130,0,.08);
+  --C:#00d4ff;--C2:#0099cc;--C3:#006699;--Cbg:rgba(0,180,220,.08);
+  --P:#b48bfa;--Pbg:rgba(150,100,240,.1);
+  --tx:#d8e4f0;--tx2:#7a9ab8;--tx3:#3d5570;
+  --M:'IBM Plex Mono',monospace;--D:'Syne',sans-serif;
+}
+body{font-family:var(--M);background:var(--bg);color:var(--tx);min-height:100vh;font-size:13px;overflow-x:hidden}
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:var(--bg1)}
+::-webkit-scrollbar-thumb{background:var(--bdr2);border-radius:2px}
+
+/* NAV */
+nav{position:sticky;top:0;z-index:100;background:rgba(7,9,15,.97);backdrop-filter:blur(12px);border-bottom:1px solid var(--bdr);padding:0 16px;height:48px;display:flex;align-items:center;gap:10px}
+.logo{font-family:var(--D);font-size:15px;font-weight:800;color:var(--tx);letter-spacing:-.02em;white-space:nowrap}
+.logo .ac{color:var(--C)}
+.tag{font-family:var(--M);font-size:8px;font-weight:600;padding:2px 8px;border-radius:2px;letter-spacing:.08em;text-transform:uppercase;white-space:nowrap}
+.tC{background:var(--Cbg);color:var(--C);border:1px solid rgba(0,180,220,.25)}
+.tG{background:var(--Gbg);color:var(--G);border:1px solid rgba(0,160,90,.25)}
+.tR{background:var(--Rbg);color:var(--R);border:1px solid rgba(255,50,80,.25)}
+.tA{background:var(--Abg);color:var(--A);border:1px solid rgba(200,130,0,.25)}
+.tN{background:var(--bg3);color:var(--tx2);border:1px solid var(--bdr)}
+.nav-r{margin-left:auto;display:flex;align-items:center;gap:8px}
+/* nav right */
+.clk{font-size:10px;color:var(--tx3);letter-spacing:.1em}
+.pulse{display:inline-block;width:6px;height:6px;border-radius:50%;margin-right:4px;animation:pa 2s ease-in-out infinite}
+.pulse.live{background:var(--G)}.pulse.demo{background:var(--A)}.pulse.err{background:var(--R)}
+@keyframes pa{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.3;transform:scale(.6)}}
+
+/* LAYOUT */
+.lay{display:grid;grid-template-columns:280px 1fr;min-height:calc(100vh - 48px)}
+
+/* SIDEBAR */
+aside{background:var(--bg1);border-right:1px solid var(--bdr);position:sticky;top:48px;height:calc(100vh - 48px);overflow-y:auto;display:flex;flex-direction:column}
+.pnl{border-bottom:1px solid var(--bdr);padding:10px 12px}
+.ptitle{font-size:8px;font-weight:600;text-transform:uppercase;letter-spacing:.14em;color:var(--tx3);margin-bottom:8px}
+
+/* Data panel */
+.data-status{padding:10px 12px;border-bottom:1px solid var(--bdr);background:var(--bg2)}
+.ds-row{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.ds-indicator{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.ds-ok{background:var(--G)}.ds-warn{background:var(--A)}.ds-err{background:var(--R)}
+.ds-text{font-size:9px;color:var(--tx2);flex:1}
+.conn-btn{padding:5px 10px;background:var(--C3);border:none;border-radius:2px;color:#fff;font-family:var(--M);font-size:9px;font-weight:700;cursor:pointer;letter-spacing:.06em;white-space:nowrap}
+.conn-btn:hover{background:var(--C2)}
+.conn-btn.sec{background:var(--bg3);border:1px solid var(--bdr);color:var(--tx2)}
+.conn-btn.sec:hover{border-color:var(--bdr2);color:var(--tx)}
+
+/* Inputs */
+.inp{background:var(--bg3);border:1px solid var(--bdr);color:var(--tx);font-family:var(--M);font-size:9px;padding:4px 7px;border-radius:2px;outline:none;width:100%}
+.inp:focus{border-color:var(--C3)}
+.inp-row{display:flex;gap:5px;margin-bottom:5px}
+.inp-row .inp{flex:1}
+
+/* Controls */
+.cg{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:6px}
+.cl{font-size:7px;color:var(--tx3);text-transform:uppercase;letter-spacing:.1em;margin-bottom:2px}
+select{background:var(--bg3);border:1px solid var(--bdr);color:var(--tx);font-family:var(--M);font-size:9px;padding:4px 7px;border-radius:2px;outline:none;width:100%;-webkit-appearance:none}
+select:focus{border-color:var(--C3)}
+select option{background:var(--bg2)}
+.scan-btn{width:100%;padding:8px;background:linear-gradient(135deg,var(--C3),var(--C2));border:none;border-radius:3px;color:#fff;font-family:var(--M);font-size:10px;font-weight:700;letter-spacing:.1em;cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:center;gap:8px;margin-top:6px}
+.scan-btn:hover:not(:disabled){transform:translateY(-1px)}
+.scan-btn:disabled{opacity:.4;cursor:not-allowed}
+.sp{width:9px;height:9px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;display:none;animation:spin .7s linear infinite}
+.scan-btn.ld .sp{display:block}
+.scan-btn.ld .bt{display:none}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* Chips */
+.chips{display:flex;flex-wrap:wrap;gap:3px;margin-bottom:6px;max-height:68px;overflow-y:auto}
+.chip{font-size:8px;padding:2px 6px;background:var(--bg3);border:1px solid var(--bdr);border-radius:2px;cursor:pointer;color:var(--tx2);transition:all .1s}
+.chip:hover{border-color:var(--R2);color:var(--R)}
+
+/* Progress */
+.prg{padding:8px 12px;border-bottom:1px solid var(--bdr)}
+.pi{font-size:8px;color:var(--tx3);margin-bottom:4px;display:flex;justify-content:space-between}
+.pb{height:2px;background:var(--bg3);border-radius:1px;overflow:hidden}
+.pf{height:100%;background:var(--C2);width:0%;transition:width .3s}
+
+/* Result cards */
+.rc{padding:8px 11px;border-bottom:1px solid var(--bdr);cursor:pointer;border-left:2px solid transparent;transition:background .1s}
+.rc:hover{background:var(--bg3)}
+.rc.sel{background:var(--bg4);border-left-color:var(--C)}
+.rc-cb{border-left-color:var(--G)}.rc-cs{border-left-color:var(--R)}.rc-bos{border-left-color:var(--A)}
+.rt{display:flex;justify-content:space-between;margin-bottom:2px}
+.rn{font-size:10px;font-weight:700;color:var(--tx)}
+.rp{font-size:10px;color:var(--tx2)}
+.rb2{display:flex;justify-content:space-between;align-items:center}
+.rtag{font-size:7px;font-weight:700;padding:2px 5px;border-radius:2px;letter-spacing:.05em}
+.rtg{background:var(--Gbg);color:var(--G);border:1px solid rgba(0,160,90,.2)}
+.rtr{background:var(--Rbg);color:var(--R);border:1px solid rgba(255,50,80,.2)}
+.rta{background:var(--Abg);color:var(--A);border:1px solid rgba(200,130,0,.2)}
+.es{padding:14px 12px;font-size:9px;color:var(--tx3);text-align:center;line-height:2}
+
+/* MAIN */
+main{padding:16px 20px;overflow-y:auto;background:var(--bg)}
+.emp{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:420px;gap:10px;color:var(--tx3)}
+.em-big{font-family:var(--D);font-size:52px;font-weight:800;letter-spacing:-.05em;color:transparent;-webkit-text-stroke:1px rgba(0,180,220,.2)}
+.em-t{font-family:var(--D);font-size:17px;font-weight:700;color:var(--tx3)}
+
+/* Detail */
+@keyframes fi{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
+.fi{animation:fi .25s ease forwards}
+.dh{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;flex-wrap:wrap;gap:8px}
+.dt{font-family:var(--D);font-size:24px;font-weight:800;letter-spacing:-.03em;line-height:1}
+.dt .ex{font-family:var(--M);font-size:10px;font-weight:300;color:var(--tx3);margin-left:6px}
+.ds{font-size:8px;color:var(--tx3);text-transform:uppercase;letter-spacing:.1em;margin-top:3px;display:flex;align-items:center;gap:6px}
+.dp{font-family:var(--D);font-size:26px;font-weight:700;line-height:1}
+.dc{font-size:10px;margin-top:2px}
+
+/* Source banner */
+.src-banner{padding:6px 10px;border-radius:3px;margin-bottom:12px;font-size:9px;display:flex;align-items:center;gap:8px}
+.sb-live{background:var(--Gbg);border:1px solid rgba(0,160,90,.2);color:var(--G)}
+.sb-yahoo{background:var(--Abg);border:1px solid rgba(200,130,0,.2);color:var(--A)}
+.sb-stooq{background:rgba(249,115,22,.08);border:1px solid rgba(249,115,22,.2);color:#f97316}
+.sb-demo{background:var(--Rbg);border:1px solid rgba(255,50,80,.2);color:var(--R)}
+
+/* Metrics */
+.mr{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:12px}
+.mc{background:var(--bg2);border:1px solid var(--bdr);border-radius:3px;padding:8px 10px}
+.ml{font-size:7px;color:var(--tx3);text-transform:uppercase;letter-spacing:.12em;margin-bottom:3px}
+.mv{font-size:13px;font-weight:600;line-height:1}
+.ms{font-size:7px;color:var(--tx3);margin-top:2px}
+
+/* Cards */
+.card{background:var(--bg1);border:1px solid var(--bdr);border-radius:4px;padding:12px;margin-bottom:12px}
+.card-t{font-size:7px;color:var(--tx3);text-transform:uppercase;letter-spacing:.12em;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center}
+.cw{position:relative;height:240px}
+
+/* TV */
+.tv-card{background:var(--bg1);border:1px solid var(--bdr);border-radius:4px;padding:12px;margin-bottom:12px}
+.tv-h{font-size:7px;color:var(--tx3);text-transform:uppercase;letter-spacing:.12em;margin-bottom:8px;display:flex;justify-content:space-between}
+.tv-badge{background:rgba(0,150,220,.12);color:#4da6ff;border:1px solid rgba(0,150,220,.22);font-size:7px;padding:2px 7px;border-radius:2px}
+
+/* Setup */
+.setup{background:var(--bg2);border:1px solid var(--bdr);border-radius:4px;padding:12px;margin-bottom:12px}
+.sh2{display:flex;align-items:center;justify-content:space-between;padding-bottom:8px;border-bottom:1px solid var(--bdr);margin-bottom:8px}
+.sg{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.sf{display:flex;flex-direction:column;gap:2px}
+.sfl{font-size:7px;color:var(--tx3);text-transform:uppercase;letter-spacing:.1em}
+.sfv{font-size:13px;font-weight:700}
+.sft{margin-top:8px;padding-top:7px;border-top:1px solid var(--bdr);font-size:8px;color:var(--tx3)}
+
+/* Table */
+.tcard{background:var(--bg1);border:1px solid var(--bdr);border-radius:4px;padding:12px;margin-bottom:12px}
+.tcard-t{font-size:7px;color:var(--tx3);text-transform:uppercase;letter-spacing:.12em;margin-bottom:8px}
+table{width:100%;border-collapse:collapse}
+th{font-size:7px;color:var(--tx3);text-transform:uppercase;letter-spacing:.1em;padding:5px 6px;border-bottom:1px solid var(--bdr);text-align:left;font-weight:500}
+td{padding:6px 6px;border-bottom:1px solid rgba(30,46,68,.35);font-size:10px}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:rgba(255,255,255,.01)}
+.sty{font-size:9px;font-weight:700;padding:2px 6px;border-radius:2px;display:inline-block}
+.sy-bms{background:var(--Abg);color:var(--A);border:1px solid rgba(200,130,0,.2)}
+.sy-cb{background:var(--Gbg);color:var(--G);border:1px solid rgba(0,160,90,.2)}
+.sy-cs{background:var(--Rbg);color:var(--R);border:1px solid rgba(255,50,80,.2)}
+
+/* AI */
+.aicard{background:var(--bg2);border:1px solid var(--bdr);border-radius:4px;padding:12px;margin-bottom:12px}
+.aih{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.ait{font-size:7px;color:var(--tx3);text-transform:uppercase;letter-spacing:.12em}
+.ai-btn{padding:4px 10px;background:transparent;border:1px solid var(--bdr2);border-radius:2px;color:var(--tx2);font-family:var(--M);font-size:8px;cursor:pointer}
+.ai-btn:hover{border-color:var(--C3);color:var(--C)}
+.aib{font-size:11px;line-height:1.8;color:var(--tx2);white-space:pre-wrap;min-height:40px}
+.aib.idle{color:var(--tx3);font-size:9px}
+.aib.loading{color:var(--tx3);font-size:9px;animation:bk 1.2s step-end infinite}
+@keyframes bk{0%,100%{opacity:1}50%{opacity:.2}}
+
+/* Disclaimer */
+.disc{font-size:8px;color:var(--tx3);padding:8px 10px;background:var(--bg1);border:1px solid var(--bdr);border-radius:3px;line-height:1.6;margin-bottom:12px}
+
+/* Toast */
+.toast{position:fixed;bottom:16px;right:16px;z-index:9999;background:var(--bg4);border:1px solid var(--bdr2);border-radius:4px;padding:8px 14px;font-size:10px;color:var(--tx);transform:translateY(40px);opacity:0;transition:all .2s;pointer-events:none}
+.toast.on{transform:translateY(0);opacity:1}
+
+/* Log panel */
+.log-panel{position:fixed;bottom:16px;left:16px;width:360px;max-height:160px;overflow-y:auto;background:rgba(7,9,15,.95);border:1px solid var(--bdr2);border-radius:4px;padding:8px;font-family:var(--M);font-size:9px;z-index:9998;display:none}
+.log-panel.show{display:block}
+.log-line{padding:1px 0;line-height:1.5}
+.log-ok{color:var(--G)}.log-warn{color:var(--A)}.log-err{color:var(--R)}.log-info{color:var(--tx3)}
+
+@media(max-width:860px){.lay{grid-template-columns:1fr}aside{position:static;height:auto}.mr{grid-template-columns:repeat(3,1fr)}.sg{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="logo">SMC<span class="ac">//</span>LIVE</div>
+  <div class="tag tN" id="n-src">OFFLINE</div>
+  <div class="tag tN" id="n-tf">DAILY</div>
+  <div class="tag tN" id="n-mkt">NSE</div>
+  <div class="tag tG" id="n-sig" style="display:none">0 SIGNALS</div>
+  <div class="nav-r">
+    <div class="tag tG" style="letter-spacing:.1em">NSE INDIA</div>
+    <div class="clk"><span class="pulse demo" id="pdot"></span><span id="clk">--:--:--</span></div>
+  </div>
+</nav>
+
+<div class="lay">
+<aside>
+
+  <!-- Data Status -->
+  <div class="data-status">
+    <div class="ptitle">DATA SOURCE</div>
+    <div class="ds-row">
+      <div class="ds-indicator ds-err" id="ds-dot"></div>
+      <div class="ds-text" id="ds-text">Checking...</div>
+    </div>
+    <div style="display:flex;gap:5px;margin-top:6px">
+      <button class="conn-btn" style="flex:1" onclick="checkProxy()">▶ CHECK PROXY</button>
+      <button class="conn-btn sec" onclick="downloadProxy()">⬇ PROXY v2</button>
+    </div>
+    <div style="font-size:7px;color:var(--tx3);margin-top:6px;line-height:1.7">
+      Proxy needed for live data.<br/>
+      Run: <span style="color:var(--C)">python smc_proxy.py</span>
+    </div>
+  </div>
+
+  <!-- Anthropic API Key -->
+  <div class="pnl">
+    <div class="ptitle">ANTHROPIC API KEY <span style="color:var(--tx3);font-weight:400">(for AI analysis)</span></div>
+    <div class="inp-row">
+      <input class="inp" id="ant-key" type="password" placeholder="sk-ant-api03-..." autocomplete="off"
+        onchange="sessionStorage.setItem('ant-key',this.value);toast('API key saved for session')"/>
+    </div>
+    <div style="font-size:7px;color:var(--tx3);margin-top:3px;line-height:1.6">
+      Get free key: <a href="https://console.anthropic.com" target="_blank" style="color:var(--C3)">console.anthropic.com ↗</a><br/>
+      Key stored in sessionStorage only — never sent anywhere except Anthropic.
+    </div>
+  </div>
+
+  <!-- Kite -->
+  <div class="pnl">
+    <div class="ptitle">KITE API (optional — real-time)</div>
+    <div class="inp-row"><input class="inp" id="k-key" placeholder="API KEY" autocomplete="off"/></div>
+    <div class="inp-row">
+      <input class="inp" id="k-tok" type="password" placeholder="ACCESS TOKEN" autocomplete="off"/>
+      <button class="conn-btn" onclick="connectKite()">CONNECT</button>
+    </div>
+    <div style="font-size:8px;color:var(--tx3);margin-top:4px" id="k-stat">● Not connected</div>
+    <a href="https://kite.trade/docs/connect/v3/user/" target="_blank" style="font-size:7px;color:var(--C3);text-decoration:none">Get access token ↗</a>
+  </div>
+
+  <!-- Controls -->
+  <div class="pnl">
+    <div class="ptitle">SCAN PARAMETERS</div>
+    <div class="cg">
+      <div><div class="cl">Timeframe</div>
+        <select id="s-tf" onchange="updNav()">
+          <option value="1d">Daily</option>
+          <option value="60m">1 Hour</option>
+          <option value="30m">30 Min</option>
+          <option value="15m">15 Min</option>
+          <option value="5m">5 Min</option>
+        </select>
+      </div>
+      <div><div class="cl">Candles</div>
+        <select id="s-nc">
+          <option value="120" selected>120</option>
+          <option value="90">90</option>
+          <option value="200">200</option>
+          <option value="60">60</option>
+        </select>
+      </div>
+      <div><div class="cl">Lookback</div>
+        <select id="s-lb">
+          <option value="2">2 bars</option>
+          <option value="3" selected>3 bars</option>
+          <option value="4">4 bars</option>
+          <option value="5">5 bars</option>
+        </select>
+      </div>
+      <div><div class="cl">Confirm On</div>
+        <select id="s-conf">
+          <option value="close">Candle Close</option>
+          <option value="wick">Wick</option>
+        </select>
+      </div>
+    </div>
+    <button class="scan-btn" id="scan-btn" onclick="runScan()">
+      <div class="sp"></div><span class="bt">▶ RUN SCAN</span>
+    </button>
+  </div>
+
+  <!-- Watchlist -->
+  <div class="pnl">
+    <div class="ptitle">WATCHLIST <span id="wl-n" style="color:var(--C)"></span></div>
+    <div class="chips" id="chips"></div>
+    <div class="inp-row">
+      <input class="inp" id="add-inp" placeholder="ADD TICKER..." style="text-transform:uppercase;font-size:8px" onkeydown="if(event.key==='Enter')addT()"/>
+      <button class="conn-btn sec" onclick="addT()">+</button>
+    </div>
+  </div>
+
+  <!-- Progress -->
+  <div class="prg">
+    <div class="pi"><span id="pt">Ready</span><span id="pp" style="color:var(--C)"></span></div>
+    <div class="pb"><div class="pf" id="pf"></div></div>
+  </div>
+
+  <!-- Results -->
+  <div id="res"><div class="es">Run scan to see results</div></div>
+
+</aside>
+
+<main id="main">
+  <div class="emp">
+    <div class="em-big">SMC</div>
+    <div class="em-t">Smart Money Concepts Scanner</div>
+    <div style="margin-top:12px;display:flex;flex-wrap:wrap;gap:6px;justify-content:center">
+      <span class="tag tA">BMS — Break of Market Structure</span>
+      <span class="tag tG">CHoCH — Bullish Reversal</span>
+      <span class="tag tR">CHoCH — Bearish Reversal</span>
+    </div>
+    <div style="margin-top:16px;font-size:9px;color:var(--tx3);max-width:340px;text-align:center;line-height:1.8">
+      1. Run <span style="color:var(--C)">python smc_proxy.py</span> in your terminal<br/>
+      2. Click <strong style="color:var(--A)">▶ CHECK PROXY</strong> to verify connection<br/>
+      3. Select timeframe &amp; click <strong style="color:var(--G)">▶ RUN SCAN</strong>
+    </div>
+  </div>
+</main>
+</div>
+
+<footer style="padding:8px 20px;border-top:1px solid var(--bdr);font-size:8px;color:var(--tx3);display:flex;justify-content:space-between;background:var(--bg1);flex-wrap:wrap;gap:4px">
+  <span>SMC Detector v5.0 · Zeiierman SMC Spec · Yahoo Finance + Kite API</span>
+  <span style="color:var(--A)">⚠ Educational only. Not SEBI registered.</span>
+</footer>
+
+<div class="toast" id="toast"></div>
+<div class="log-panel" id="log-panel"></div>
+
+<script>
+'use strict';
+// ══════════════════════════════════════════════════════
+// CONSTANTS
+// ══════════════════════════════════════════════════════
+const PROXY_URL  = 'http://localhost:8000'; // primary port
+const PROXY_ALT  = 'http://localhost:7777'; // fallback if old proxy running
+let   PROXY_BASE = PROXY_URL;               // set by checkProxy() to whichever responds
+const TF_YF      = {'1d':'1d','60m':'60m','30m':'30m','15m':'15m','5m':'5m'};
+const TF_YF_RNG  = {'1d':'1y','60m':'60d','30m':'30d','15m':'10d','5m':'5d'};
+const TF_KITE    = {'1d':'day','60m':'60minute','30m':'30minute','15m':'15minute','5m':'5minute'};
+const TF_TV      = {'1d':'D','60m':'60','30m':'30','15m':'15','5m':'5'};
+const TF_LBL     = {'1d':'DAILY','60m':'1H','30m':'30M','15m':'15M','5m':'5M'};
+
+const NSE_LIST=['RELIANCE','TCS','HDFCBANK','INFY','ICICIBANK','SBIN','AXISBANK',
+  'BAJFINANCE','WIPRO','LT','TATAMOTORS','MARUTI','SUNPHARMA','NTPC',
+  'POWERGRID','ADANIENT','HINDUNILVR','KOTAKBANK','ASIANPAINT','ITC'];
+const KTOK={RELIANCE:738561,TCS:2953217,HDFCBANK:341249,INFY:408065,ICICIBANK:1270529,
+  SBIN:779521,AXISBANK:1510401,BAJFINANCE:4268801,WIPRO:969473,LT:2939649,
+  TATAMOTORS:884737,MARUTI:2815745,SUNPHARMA:857857,NTPC:2977281,POWERGRID:3834113,
+  ADANIENT:25,HINDUNILVR:356865,KOTAKBANK:492033,ASIANPAINT:60417,ITC:424961};
+
+// ══════════════════════════════════════════════════════
+// NSE only — US muted
+const mkt='NSE';
+let proxyOk=false, proxyVer='none';
+let kiteKey='', kiteTok='', kiteOk=false;
+let tickers=[...NSE_LIST], results=[], activeSym=null, chartInst=null;
+
+// ══════════════════════════════════════════════════════
+// LOGGING — visible in UI so you can debug without DevTools
+// ══════════════════════════════════════════════════════
+const LOG=[];
+function log(level,msg){
+  LOG.push({level,msg,t:new Date().toLocaleTimeString('en-IN',{hour12:false})});
+  if(LOG.length>40)LOG.shift();
+  const panel=document.getElementById('log-panel');
+  if(panel){
+    panel.innerHTML=LOG.slice(-15).reverse().map(e=>
+      `<div class="log-line log-${e.level}">[${e.t}] ${e.msg}</div>`
+    ).join('');
+  }
+  console[level==='err'?'error':level==='warn'?'warn':'log']('[SMC]',msg);
+}
+function toggleLog(){
+  const p=document.getElementById('log-panel');
+  p.classList.toggle('show');
+}
+
+// ══════════════════════════════════════════════════════
+// UTILITIES
+// ══════════════════════════════════════════════════════
+setInterval(()=>{
+  const n=new Date();
+  document.getElementById('clk').textContent=
+    n.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false});
+},1000);
+
+function toast(m,d=2800){
+  const el=document.getElementById('toast');
+  el.textContent=m; el.classList.add('on');
+  clearTimeout(el._t); el._t=setTimeout(()=>el.classList.remove('on'),d);
+}
+
+function updNav(){
+  document.getElementById('n-tf').textContent=TF_LBL[document.getElementById('s-tf').value]||'';
+  document.getElementById('n-mkt').textContent='NSE';
+}
+
+function ccy(r){
+  const c=typeof r==='string'?r:(r?.currency||'');
+  if(c==='USD')return'$'; if(c==='GBP')return'£'; if(c==='EUR')return'€';
+  return'₹';
+}
+function fp(r,v){
+  if(v==null||isNaN(+v))return'—';
+  return ccy(r)+Number(v).toFixed(2);
+}
+
+function setDataStatus(state, text){
+  const dot=document.getElementById('ds-dot');
+  const txt=document.getElementById('ds-text');
+  const nsrc=document.getElementById('n-src');
+  const pdot=document.getElementById('pdot');
+  dot.className='ds-indicator ds-'+state;
+  txt.textContent=text;
+  if(state==='ok'){
+    nsrc.textContent='PROXY LIVE'; nsrc.className='tag tG';
+    pdot.className='pulse live';
+  }else if(state==='warn'){
+    nsrc.textContent='YAHOO ONLY'; nsrc.className='tag tA';
+    pdot.className='pulse demo';
+  }else{
+    nsrc.textContent='OFFLINE'; nsrc.className='tag tN';
+    pdot.className='pulse err';
+  }
+}
+
+// ══════════════════════════════════════════════════════
+// FETCH — no AbortController/AbortSignal ever
+// Simple fetch for localhost (no preflight), headers for external
+// ══════════════════════════════════════════════════════
+function smartFetch(url, extraHeaders={}, ms=12000){
+  const isLocal=url.startsWith('http://localhost')||url.startsWith('http://127.');
+  const opts=isLocal
+    ? {method:'GET'}
+    : {method:'GET', credentials:'omit',
+       headers:{'Accept':'application/json,text/plain,*/*',...extraHeaders}};
+  return Promise.race([
+    fetch(url, opts),
+    new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout after '+ms+'ms')),ms))
+  ]);
+}
+
+// ══════════════════════════════════════════════════════
+// PROXY CHECK
+// ══════════════════════════════════════════════════════
+async function checkProxy(){
+  setDataStatus('warn','Checking localhost...');
+  log('info','Checking ports 8000 and 7777...');
+
+  // Try both ports — whichever responds first wins
+  const ports=[8000,7777];
+  let found=false;
+
+  for(const port of ports){
+    const base=`http://localhost:${port}`;
+    log('info',`Trying port ${port}...`);
+
+    // Try v2 /health endpoint
+    try{
+      const r=await Promise.race([
+        fetch(`${base}/health`),
+        new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),4000))
+      ]);
+      if(r.ok||r.status<500){
+        let ver='2.0';
+        try{const j=await r.json();ver=j.version||'2.0';}catch{}
+        proxyOk=true; proxyVer=ver; PROXY_BASE=base; found=true;
+        log('ok',`Proxy v${ver} found on port ${port}`);
+        break;
+      }
+    }catch(e){
+      log('warn',`Port ${port} /health: ${e.message}`);
+    }
+
+    // Try v1 legacy /?url= format
+    try{
+      const r=await Promise.race([
+        fetch(`${base}/?url=https://httpbin.org/get`),
+        new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),4000))
+      ]);
+      if(r){
+        proxyOk=true; proxyVer='1.0'; PROXY_BASE=base; found=true;
+        log('ok',`Proxy v1.0 found on port ${port}`);
+        break;
+      }
+    }catch(e){
+      log('warn',`Port ${port} legacy: ${e.message}`);
+    }
+  }
+
+  if(!found){
+    proxyOk=false; proxyVer='none';
+    setDataStatus('err','Proxy offline — run: python smc_proxy.py');
+    log('err','No proxy on port 8000 or 7777');
+    toast('⚠ Run: python smc_proxy.py  then click CHECK PROXY',5000);
+    return;
+  }
+
+  // Update all hardcoded port refs to use PROXY_BASE
+  log('ok',`Using proxy at ${PROXY_BASE} (v${proxyVer})`);
+  document.getElementById('pdot').className='pulse live';
+
+  // Test Yahoo data
+  await testYahooViaProxy();
+}
+
+async function testYahooViaProxy(){
+  log('info','Testing Yahoo data via proxy...');
+  try{
+    const url=proxyVer==='1.0'
+      ? `${PROXY_BASE}/?url=${encodeURIComponent('https://query1.finance.yahoo.com/v8/finance/chart/INFY.NS?range=5d&interval=1d&region=IN&lang=en-IN')}`
+      : `${PROXY_BASE}/yahoo?symbol=INFY.NS&range=5d&interval=1d`;
+    const r=await Promise.race([
+      fetch(url),
+      new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),10000))
+    ]);
+    if(r.ok){
+      const raw=await r.text();
+      const res=parseYF(raw);
+      const n=res?.timestamp?.length||0;
+      if(n>0){
+        setDataStatus('ok',`Proxy live — Yahoo OK (${n} bars test)`);
+        log('ok',`Yahoo via proxy: ${n} bars for INFY.NS`);
+        toast(`✓ Live data ready! (${n} bars from Yahoo)`);
+        return;
+      }
+    }
+    log('warn','Proxy up but Yahoo returned no data — crumb may need refresh');
+    setDataStatus('warn','Proxy up but Yahoo data empty — wait 30s and retry');
+    toast('Proxy found but Yahoo data empty. Try again in 30 seconds.',4000);
+  }catch(e){
+    log('err',`Yahoo test failed: ${e.message}`);
+    setDataStatus('warn',`Proxy up, Yahoo test failed: ${e.message.slice(0,40)}`);
+  }
+}
+
+// ══════════════════════════════════════════════════════
+// YAHOO FINANCE — parse response payload
+// ══════════════════════════════════════════════════════
+function parseYF(raw){
+  if(!raw||raw.length<80)return null;
+  try{
+    const o=JSON.parse(raw);
+    const inner=o.contents!=null?JSON.parse(o.contents):o;
+    return inner?.chart?.result?.[0]??null;
+  }catch{return null;}
+}
+
+function barsFromYF(res, ccy){
+  const ts=res.timestamp, q=res.indicators.quote[0];
+  const adj=res.indicators.adjclose?.[0]?.adjclose??null;
+  const out=[];
+  for(let i=0;i<ts.length;i++){
+    const rC=q.close[i],rO=q.open[i],rH=q.high[i],rL=q.low[i];
+    if(!rC||!rO||!rH||!rL||rC<=0||rH<=0||rL<=0)continue;
+    const aC=(adj&&adj[i]>0)?adj[i]:rC;
+    const rt=rC>0?aC/rC:1;
+    const o=rO*rt,h=rH*rt,l=rL*rt,c=aC;
+    if(!isFinite(c)||h<l)continue;
+    out.push({date:new Date(ts[i]*1000),open:o,high:h,low:l,close:c,
+              volume:q.volume[i]??0,currency:ccy});
+  }
+  return out;
+}
+
+// ══════════════════════════════════════════════════════
+// FETCH MARKET DATA — tries proxy first, then fallbacks
+// ══════════════════════════════════════════════════════
+async function fetchData(sym, tf, isNSE){
+  const yfSym   = isNSE?sym+'.NS':sym;
+  const range   = TF_YF_RNG[tf]||'1y';
+  const interval= TF_YF[tf]||'1d';
+  const region  = isNSE?'IN':'US';
+  const lang    = isNSE?'en-IN':'en-US';
+  const expCcy  = isNSE?'INR':'USD';
+
+  const yParams=`range=${range}&interval=${interval}&includePrePost=false&events=div%2Csplit&region=${region}&lang=${lang}&corsDomain=finance.yahoo.com`;
+  const yQ1=`https://query1.finance.yahoo.com/v8/finance/chart/${yfSym}?${yParams}`;
+  const yQ2=`https://query2.finance.yahoo.com/v8/finance/chart/${yfSym}?${yParams}`;
+
+  // Build source list — proxy always first if running
+  const sources=[];
+
+  if(proxyOk){
+    const proxyUrl= proxyVer==='1.0'
+      ? `${PROXY_BASE}/?url=${encodeURIComponent(yQ1)}`
+      : `${PROXY_BASE}/yahoo?symbol=${yfSym}&range=${range}&interval=${interval}`;
+    sources.push({url:proxyUrl, label:'proxy', local:true});
+  }
+
+  // External CORS proxies as fallback
+  sources.push(
+    {url:`https://api.allorigins.win/get?url=${encodeURIComponent(yQ1)}`, label:'allorigins-1', local:false},
+    {url:`https://api.allorigins.win/get?url=${encodeURIComponent(yQ2)}`, label:'allorigins-2', local:false},
+    {url:`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(yQ1)}`, label:'codetabs', local:false},
+    {url:yQ1, label:'direct-q1', local:false},
+    {url:yQ2, label:'direct-q2', local:false}
+  );
+
+  log('info',`Fetching ${yfSym} (${range}/${interval}) — ${sources.length} sources`);
+
+  // Race all sources — first valid response wins
+  const result=await new Promise(resolve=>{
+    let pending=sources.length, settled=false;
+    const done=v=>{if(!settled){settled=true;resolve(v);}};
+
+    sources.forEach(({url,label,local})=>{
+      const fetchPromise=local
+        ? Promise.race([fetch(url),new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),12000))])
+        : smartFetch(url,{},12000);
+
+      fetchPromise.then(async r=>{
+        if(settled)return;
+        if(!r?.ok){
+          log('warn',`${label}: HTTP${r?.status||'?'} for ${sym}`);
+          if(--pending===0)done(null); return;
+        }
+        const raw=await r.text().catch(()=>'');
+        const res=parseYF(raw);
+        if(!res?.timestamp?.length){
+          log('warn',`${label}: no timestamps for ${sym}`);
+          if(--pending===0)done(null); return;
+        }
+        // Currency check — hard reject only obvious cross-market
+        const gotCcy=res.meta?.currency||'';
+        if(gotCcy){
+          const wrong=(isNSE&&(gotCcy==='USD'||gotCcy==='EUR'))
+                    ||(!isNSE&&gotCcy==='INR');
+          if(wrong){
+            log('warn',`${label}: wrong ccy ${gotCcy} for ${sym}`);
+            if(--pending===0)done(null); return;
+          }
+        }
+        const bars=barsFromYF(res,expCcy);
+        if(bars.length>=20){
+          log('ok',`${sym}: ${bars.length} bars via ${label} (${expCcy})`);
+          done({data:bars,source:label.startsWith('proxy')?'proxy':'yahoo',currency:expCcy});
+        }else{
+          log('warn',`${label}: only ${bars.length} bars for ${sym}`);
+          if(--pending===0)done(null);
+        }
+      }).catch(e=>{
+        log('warn',`${label} error for ${sym}: ${e.message}`);
+        if(--pending===0)done(null);
+      });
+    });
+  });
+
+  if(result){log('ok',`${sym} ✓ source=${result.source}`); return result;}
+
+  // Stooq CSV absolute fallback
+  try{
+    const stSym=isNSE?yfSym.toLowerCase():sym.toLowerCase()+'.us';
+    log('info',`Trying Stooq for ${stSym}...`);
+    const r=await smartFetch(`https://stooq.com/q/d/l/?s=${stSym}&i=d`,{},10000);
+    if(r?.ok){
+      const csv=await r.text();
+      if(csv&&!csv.startsWith('<')&&csv.includes(',')&&csv.length>100){
+        const bars=csv.trim().split('\n').slice(1).map(l=>{
+          const p=l.split(','); if(p.length<5)return null;
+          const[yr,mo,dy]=p[0].split('-').map(Number);
+          const b={date:new Date(yr,mo-1,dy),open:+p[1],high:+p[2],low:+p[3],
+                   close:+p[4],volume:+(p[5]||0),currency:expCcy};
+          return(b.close>0&&b.high>=b.low&&isFinite(b.close))?b:null;
+        }).filter(Boolean).sort((a,b)=>a.date-b.date);
+        if(bars.length>=20){
+          log('ok',`${sym}: ${bars.length} bars via Stooq`);
+          return{data:bars,source:'stooq',currency:expCcy};
+        }
+      }
+    }
+  }catch(e){log('warn',`Stooq failed for ${sym}: ${e.message}`);}
+
+  log('err',`ALL sources failed for ${sym}`);
+  return null;
+}
+
+// ══════════════════════════════════════════════════════
+// KITE
+// ══════════════════════════════════════════════════════
+async function connectKite(){
+  const key=document.getElementById('k-key').value.trim();
+  const tok=document.getElementById('k-tok').value.trim();
+  const stat=document.getElementById('k-stat');
+  if(!key||!tok){stat.textContent='● Enter API key + access token';return;}
+  if(!proxyOk){
+    await checkProxy();
+    if(!proxyOk){stat.textContent='● Proxy offline — run smc_proxy.py first';return;}
+  }
+  stat.textContent='● Testing Kite credentials...';
+  try{
+    const kUrl=proxyVer==='1.0'
+      ? `${PROXY_BASE}/?url=${encodeURIComponent('https://api.kite.trade/quote/ltp?i=NSE:INFY')}`
+      : `${PROXY_BASE}/kite?url=${encodeURIComponent('https://api.kite.trade/quote/ltp?i=NSE:INFY')}`;
+    const r=await Promise.race([
+      fetch(kUrl,{headers:{'X-SMC-Key':key,'X-SMC-Token':tok}}),
+      new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),8000))
+    ]);
+    if(r.ok){
+      const j=await r.json();
+      if(j.status==='success'&&j.data){
+        kiteKey=key; kiteTok=tok; kiteOk=true;
+        stat.textContent='● KITE CONNECTED ✓ Real-time NSE data';
+        document.getElementById('n-src').textContent='KITE LIVE';
+        document.getElementById('n-src').className='tag tG';
+        sessionStorage.setItem('k',key); sessionStorage.setItem('t',tok);
+        toast('✓ Kite connected — real-time NSE data active!');
+        log('ok','Kite API connected');
+        return;
+      }
+      stat.textContent='● Kite auth failed: '+(j.message||JSON.stringify(j).slice(0,50));
+      log('err','Kite auth failed: '+(j.message||''));
+    }else{
+      stat.textContent=`● Kite HTTP error: ${r.status}`;
+    }
+  }catch(e){
+    stat.textContent=`● Kite error: ${e.message}`;
+    log('err',`Kite connect error: ${e.message}`);
+  }
+}
+
+async function fetchKiteHistorical(sym,tf){
+  if(!kiteOk||!KTOK[sym])return null;
+  const token=KTOK[sym];
+  const interval=TF_KITE[tf]||'day';
+  const nc=+document.getElementById('s-nc').value;
+  const to=new Date(); const from=new Date(to);
+  from.setDate(from.getDate()-Math.ceil(nc*1.6));
+  const fmt=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')} 09:00:00`;
+  try{
+    const path=`/instruments/historical/${token}/${interval}?from=${encodeURIComponent(fmt(from))}&to=${encodeURIComponent(fmt(to))}&continuous=0`;
+    const url=proxyVer==='1.0'
+      ? `${PROXY_BASE}/?url=${encodeURIComponent('https://api.kite.trade'+path)}`
+      : `${PROXY_BASE}/kite?url=${encodeURIComponent('https://api.kite.trade'+path)}`;
+    const r=await Promise.race([
+      fetch(url,{headers:{'X-SMC-Key':kiteKey,'X-SMC-Token':kiteTok}}),
+      new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),12000))
+    ]);
+    if(r.ok){
+      const j=await r.json();
+      if(j.status==='success'&&j.data?.candles?.length>20){
+        const bars=j.data.candles.map(c=>({
+          date:new Date(c[0]),open:+c[1],high:+c[2],low:+c[3],
+          close:+c[4],volume:+c[5],currency:'INR'
+        })).filter(b=>b.close>0);
+        log('ok',`${sym}: ${bars.length} bars via Kite`);
+        return{data:bars,source:'kite',currency:'INR'};
+      }
+    }
+  }catch(e){log('warn',`Kite historical ${sym}: ${e.message}`);}
+  return null;
+}
+
+// ══════════════════════════════════════════════════════
+// SYNTHETIC FALLBACK
+// ══════════════════════════════════════════════════════
+function genFallback(sym,n=120){
+  let s=0; for(const c of sym)s=(s*31+c.charCodeAt(0))&0x7fffffff;
+  const rng=()=>{s=(s*1664525+1013904223)&0x7fffffff;return s/0x7fffffff;};
+  const rn=(m,sg)=>{let u=Math.max(rng(),1e-10),v=rng();return m+sg*Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);};
+  const base=200+rng()*800;
+  const p1=Array.from({length:35},(_,i)=>base*(1-.2*i/34)+rn(0,base*.013));
+  const p2=Array.from({length:25},(_,i)=>p1[34]*(1+.18*i/24)+rn(0,base*.015));
+  const p3=Array.from({length:20},(_,i)=>p2[24]*(1-.07*i/19)+rn(0,base*.01));
+  const p4=Array.from({length:40},(_,i)=>p3[19]*(1+.25*i/39)+rn(0,base*.018));
+  const cls=[...p1,...p2,...p3,...p4].map(v=>Math.max(v,1));
+  const H=cls.map(c=>Math.max(c*(1+Math.abs(rn(0,.011))),c));
+  const L=cls.map(c=>Math.min(c*(1-Math.abs(rn(0,.011))),c));
+  const O=[cls[0],...cls.slice(0,-1)];
+  const end=new Date();
+  const ccy2='INR';
+  return Array.from({length:n},(_,i)=>{
+    const d=new Date(end); d.setDate(d.getDate()-(n-1-i)*1.4);
+    return{date:d,open:O[i],high:H[i],low:L[i],close:cls[i],volume:500000+Math.floor(rng()*4e6),currency:ccy2};
+  });
+}
+
+// ══════════════════════════════════════════════════════
+// SMC ENGINE — Zeiierman spec
+// ══════════════════════════════════════════════════════
+function calcATR(d,p=14){
+  const tr=d.map((b,i)=>i===0?b.high-b.low:Math.max(b.high-b.low,Math.abs(b.high-d[i-1].close),Math.abs(b.low-d[i-1].close)));
+  let a=tr.slice(0,p).reduce((s,v)=>s+v,0)/p;
+  for(let i=p;i<tr.length;i++)a=(a*(p-1)+tr[i])/p;
+  return a;
+}
+
+function findSwings(data,lb=3){
+  return data.map((b,i)=>{
+    if(i<lb||i>=data.length-lb)return{...b,swingHigh:false,swingLow:false};
+    const w=data.slice(i-lb,i+lb+1);
+    const mxH=Math.max(...w.map(x=>x.high));
+    const mnL=Math.min(...w.map(x=>x.low));
+    return{...b,
+      swingHigh:b.high===mxH&&w.filter(x=>x.high===mxH).length===1,
+      swingLow: b.low===mnL &&w.filter(x=>x.low===mnL).length===1
+    };
+  });
+}
+
+function detectSMC(data,conf='close'){
+  const signals=[], swingPoints=[], orderBlocks=[], fvgs=[];
+  data.forEach((b,i)=>{
+    if(b.swingHigh)swingPoints.push({idx:i,kind:'high',price:b.high,date:b.date,label:''});
+    if(b.swingLow) swingPoints.push({idx:i,kind:'low', price:b.low, date:b.date,label:''});
+  });
+  swingPoints.sort((a,b)=>a.idx-b.idx);
+
+  let lastSH=null,lastSL=null;
+  for(const sp of swingPoints){
+    if(sp.kind==='high'){sp.label=lastSH==null?'SH':(sp.price>lastSH.price?'HH':'LH');lastSH=sp;}
+    else{sp.label=lastSL==null?'SL':(sp.price<lastSL.price?'LL':'HL');lastSL=sp;}
+  }
+
+  let trend='neutral',prevSH=null,prevSL=null;
+  for(const sp of swingPoints){
+    if(sp.kind==='high'){
+      if(prevSH&&sp.price>prevSH.price){
+        let ci=sp.idx,cp=sp.price,cd=sp.date;
+        if(conf==='close'){
+          const c=data.slice(sp.idx+1).find(b=>b.close>sp.price);
+          if(!c){prevSH=sp;continue;}
+          ci=data.indexOf(c);cp=c.close;cd=c.date;
+        }
+        const t=trend==='down'?'CHoCH':'BMS';
+        signals.push({type:t,dir:'bullish',structureLevel:sp.price,price:cp,date:cd,idx:ci,
+          swingLabel:sp.label,desc:t==='CHoCH'?'Bearish→Bullish reversal':'BMS UP',
+          action:t==='CHoCH'?'⚡ LONG at OB':'✅ Ride long'});
+        const ob=data.slice(Math.max(0,sp.idx-8),sp.idx).reverse().find(b=>b.close<b.open);
+        if(ob)orderBlocks.push({...ob,kind:'bullish',label:t+' OB'});
+        trend='up';
+      }
+      prevSH=sp;
+    }else{
+      if(prevSL&&sp.price<prevSL.price){
+        let ci=sp.idx,cp=sp.price,cd=sp.date;
+        if(conf==='close'){
+          const c=data.slice(sp.idx+1).find(b=>b.close<sp.price);
+          if(!c){prevSL=sp;continue;}
+          ci=data.indexOf(c);cp=c.close;cd=c.date;
+        }
+        const t=trend==='up'?'CHoCH':'BMS';
+        signals.push({type:t,dir:'bearish',structureLevel:sp.price,price:cp,date:cd,idx:ci,
+          swingLabel:sp.label,desc:t==='CHoCH'?'Bullish→Bearish reversal':'BMS DOWN',
+          action:t==='CHoCH'?'⚡ SHORT at OB':'✅ Ride short'});
+        const ob=data.slice(Math.max(0,sp.idx-8),sp.idx).reverse().find(b=>b.close>b.open);
+        if(ob)orderBlocks.push({...ob,kind:'bearish',label:t+' OB'});
+        trend='down';
+      }
+      prevSL=sp;
+    }
+  }
+
+  for(let i=1;i<data.length-1;i++){
+    const[a,b,c]=[data[i-1],data[i],data[i+1]];
+    if(a.low>c.high&&b.close>b.open)fvgs.push({idx:i,top:a.low,bottom:c.high,kind:'bullish',date:b.date});
+    if(a.high<c.low&&b.close<b.open)fvgs.push({idx:i,top:c.low,bottom:a.high,kind:'bearish',date:b.date});
+  }
+
+  return{signals,swingPoints,orderBlocks:orderBlocks.slice(-6),fvgs:fvgs.slice(-8),
+         trend,lastSH:prevSH,lastSL:prevSL};
+}
+
+function buildSetup(signals,data){
+  const last=signals.filter(s=>['BMS','CHoCH'].includes(s.type)).slice(-1)[0];
+  if(!last)return null;
+  const cp=data[data.length-1].close, atr=calcATR(data), risk=atr*1.5;
+  return last.dir==='bullish'
+    ?{bias:'LONG',sig:last.type,dir:'bullish',entry:cp,sl:cp-risk,t1:cp+risk,t2:cp+2*risk,atr,rr:'1:2'}
+    :{bias:'SHORT',sig:last.type,dir:'bearish',entry:cp,sl:cp+risk,t1:cp-risk,t2:cp-2*risk,atr,rr:'1:2'};
+}
+
+// ══════════════════════════════════════════════════════
+// WATCHLIST
+// ══════════════════════════════════════════════════════
+function renderChips(){
+  document.getElementById('chips').innerHTML=
+    tickers.map(t=>`<span class="chip" onclick="removeT('${t}')">${t} <span style="opacity:.4">×</span></span>`).join('');
+  document.getElementById('wl-n').textContent='('+tickers.length+')';
+}
+renderChips();
+function addT(){
+  const inp=document.getElementById('add-inp');
+  let v=inp.value.trim().toUpperCase(); if(!v)return;
+  if(!tickers.includes(v)){tickers.push(v);renderChips();toast('Added '+v);}
+  inp.value='';
+}
+function removeT(t){tickers=tickers.filter(x=>x!==t);renderChips();}
+// NSE fixed — no market switching
+
+// ══════════════════════════════════════════════════════
+// SCAN
+// ══════════════════════════════════════════════════════
+async function runScan(){
+  const btn=document.getElementById('scan-btn');
+  btn.disabled=true; btn.classList.add('ld');
+  results=[]; document.getElementById('res').innerHTML='';
+  document.getElementById('n-sig').style.display='none';
+
+  const tf  =document.getElementById('s-tf').value;
+  const nc  =+document.getElementById('s-nc').value;
+  const lb  =+document.getElementById('s-lb').value;
+  const conf=document.getElementById('s-conf').value;
+  const isNSE=mkt==='NSE';
+  let matched=0;
+
+  for(let i=0;i<tickers.length;i++){
+    const sym=tickers[i];
+    const pct=Math.round((i+1)/tickers.length*100);
+    document.getElementById('pt').textContent=`Fetching ${sym}...`;
+    document.getElementById('pp').textContent=pct+'%';
+    document.getElementById('pf').style.width=pct+'%';
+    await new Promise(r=>setTimeout(r,20));
+
+    // Fetch OHLCV
+    let raw=null, source='demo', currency=isNSE?'INR':'USD';
+
+    // Try Kite first for NSE if connected
+    if(isNSE&&kiteOk){
+      const kr=await fetchKiteHistorical(sym,tf);
+      if(kr){raw=kr.data;source='kite';currency='INR';}
+    }
+
+    // Yahoo Finance / proxy
+    if(!raw){
+      const yr=await fetchData(sym,tf,isNSE);
+      if(yr){raw=yr.data;source=yr.source;currency=yr.currency||currency;}
+    }
+
+    // Last resort: synthetic demo
+    if(!raw||raw.length<20){
+      raw=genFallback(sym); source='demo';
+      log('warn',`${sym}: using DEMO data — all live sources failed`);
+    }
+
+    document.getElementById('pt').textContent=
+      `${sym} — ${source==='demo'?'🔴 DEMO':source==='kite'?'🟢 KITE':source==='stooq'?'🟠 STOOQ':'🟡 YAHOO'} (${raw.length} bars)`;
+
+    const trimmed=raw.slice(-nc);
+    const withSwings=findSwings(trimmed,lb);
+    const smc=detectSMC(withSwings,conf);
+    const{signals,swingPoints,orderBlocks,fvgs,trend,lastSH,lastSL}=smc;
+    if(!signals.length)continue;
+
+    const last=signals[signals.length-1];
+    const recentTypes=signals.slice(-6).map(s=>s.type);
+    if(!recentTypes.includes('BMS')&&!recentTypes.includes('CHoCH'))continue;
+
+    // Get live LTP if Kite connected
+    let ltp=trimmed[trimmed.length-1].close;
+    if(isNSE&&kiteOk&&KTOK[sym]){
+      try{
+        const path=`/quote/ltp?i=NSE:${sym}`;
+        const url=proxyVer==='1.0'
+          ?`${PROXY_BASE}/?url=${encodeURIComponent('https://api.kite.trade'+path)}`
+          :`${PROXY_BASE}/kite?url=${encodeURIComponent('https://api.kite.trade'+path)}`;
+        const r=await fetch(url,{headers:{'X-SMC-Key':kiteKey,'X-SMC-Token':kiteTok}});
+        const j=await r.json();
+        if(j.status==='success'&&j.data?.['NSE:'+sym])
+          ltp=j.data['NSE:'+sym].last_price;
+      }catch{}
+    }
+
+    const setup=buildSetup(signals,trimmed);
+    results.push({sym,price:ltp,trend,last,currency,
+      chochDone:last.type==='CHoCH',
+      setup,signals:signals.slice(-8),swingPoints,orderBlocks,fvgs,
+      data:withSwings,source,lastSH,lastSL});
+    matched++;
+    appendRC(results[results.length-1]);
+  }
+
+  results.sort((a,b)=>(b.chochDone?2:b.last.type==='BMS'?1:0)-(a.chochDone?2:a.last.type==='BMS'?1:0));
+  document.getElementById('res').innerHTML='';
+  results.forEach(r=>appendRC(r));
+  document.getElementById('pt').textContent=`${matched} structures found`;
+  document.getElementById('pp').textContent='';
+  if(matched>0){
+    const ns=document.getElementById('n-sig');
+    ns.textContent=matched+' SIGNALS'; ns.style.display='';
+    toast(`${matched} SMC structures detected`);
+    showDetail(results[0].sym);
+  }else{
+    document.getElementById('res').innerHTML='<div class="es">No BOS/CHoCH found.<br/>Try different lookback or timeframe.</div>';
+  }
+  btn.disabled=false; btn.classList.remove('ld');
+}
+
+function appendRC(r){
+  const cls=r.chochDone?(r.last.dir==='bullish'?'rc-cb':'rc-cs'):'rc-bos';
+  const tc={up:'var(--G)',down:'var(--R)',neutral:'var(--A)'}[r.trend]||'var(--A)';
+  const arr={up:'▲',down:'▼',neutral:'◆'}[r.trend]||'◆';
+  const stag=r.chochDone
+    ?`<span class="rtag ${r.last.dir==='bullish'?'rtg':'rtr'}">${r.last.dir==='bullish'?'CHoCH↑':'CHoCH↓'}</span>`
+    :`<span class="rtag rta">BMS</span>`;
+  const srcDot=r.source==='demo'?'🔴':r.source==='kite'?'🟢':r.source==='stooq'?'🟠':'🟡';
+  const el=document.createElement('div');
+  el.className=`rc ${cls}`;el.dataset.s=r.sym;el.onclick=()=>showDetail(r.sym);
+  el.innerHTML=`<div class="rt"><span class="rn">${r.sym} <span style="font-size:8px">${srcDot}</span></span><span class="rp">${fp(r,r.price)}</span></div>
+  <div class="rb2"><span style="font-size:8px;font-weight:700;color:${tc}">${arr} ${r.trend.toUpperCase()}</span>${stag}</div>`;
+  document.getElementById('res').appendChild(el);
+}
+
+// ══════════════════════════════════════════════════════
+// DETAIL VIEW
+// ══════════════════════════════════════════════════════
+function showDetail(sym){
+  activeSym=sym;
+  document.querySelectorAll('.rc').forEach(el=>el.classList.toggle('sel',el.dataset.s===sym));
+  const r=results.find(x=>x.sym===sym); if(!r)return;
+  renderDetail(r);
+}
+
+function renderDetail(r){
+  const CS=ccy(r);
+  const tc={up:'var(--G)',down:'var(--R)',neutral:'var(--A)'}[r.trend]||'var(--A)';
+  const L=r.last||{};
+  const s=r.setup;
+  const prev=r.data.length>1?r.data[r.data.length-2].close:r.price;
+  const chg=r.price-prev,chgPct=chg/prev*100;
+  const cc=chg>=0?'var(--G)':'var(--R)';
+  const chgT=(chg>=0?'+':'')+CS+Math.abs(chg).toFixed(2)+' ('+(chgPct>=0?'+':'')+chgPct.toFixed(2)+'%)';
+  const srcMap={'kite':'sb-live','proxy':'sb-yahoo','yahoo':'sb-yahoo','stooq':'sb-stooq','demo':'sb-demo'};
+  const srcTxt={'kite':'● KITE — Real-time NSE data','proxy':'● PROXY — Yahoo Finance via smc_proxy.py',
+    'yahoo':'● YAHOO FINANCE','stooq':'● STOOQ.COM — EOD data','demo':'⚠ DEMO DATA — all live sources failed'};
+  const tvSym2='BSE:'+r.sym;
+  const tvInt=TF_TV[document.getElementById('s-tf').value]||'D';
+  const atrT=s?CS+s.atr.toFixed(2):'—';
+  const shLv=r.lastSH?CS+r.lastSH.price.toFixed(2):'—';
+  const slLv=r.lastSL?CS+r.lastSL.price.toFixed(2):'—';
+  const sigC=L.type==='CHoCH'?(L.dir==='bullish'?'var(--G)':'var(--R)'):'var(--A)';
+  const exch='NSE';
+
+  const sigsH=(r.signals||[]).map(sig=>{
+    const sc=sig.type==='CHoCH'?(sig.dir==='bullish'?'sy-cb':'sy-cs'):'sy-bms';
+    const dc=sig.dir==='bullish'?'var(--G)':'var(--R)';
+    const ds=sig.date instanceof Date
+      ?sig.date.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'2-digit'})
+      :String(sig.date).slice(0,11);
+    return`<tr>
+      <td style="color:var(--tx3);font-size:8px">${ds}</td>
+      <td><span class="sty ${sc}">${sig.type}</span> <span style="font-size:7px;color:var(--tx3)">${sig.swingLabel||''}</span></td>
+      <td style="font-size:9px;font-weight:700;color:${dc}">${sig.dir.toUpperCase()}</td>
+      <td>${CS}${Number(sig.price).toFixed(2)}</td>
+      <td style="font-size:8px;color:var(--tx3)">${sig.structureLevel?'@ '+CS+sig.structureLevel.toFixed(2):''}</td>
+      <td style="font-size:8px;color:var(--tx2)">${sig.action||''}</td>
+    </tr>`;
+  }).join('');
+
+  const obH=(r.orderBlocks||[]).length?`
+  <div class="tcard fi">
+    <div class="tcard-t">ORDER BLOCKS</div>
+    <div style="overflow-x:auto"><table><thead><tr><th>DATE</th><th>KIND</th><th>HIGH</th><th>LOW</th><th>LABEL</th></tr></thead><tbody>
+    ${(r.orderBlocks||[]).map(ob=>{
+      const od=ob.date instanceof Date?ob.date.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'2-digit'}):String(ob.date).slice(0,11);
+      const oc=ob.kind==='bullish'?'var(--G)':'var(--R)';
+      return`<tr><td style="font-size:9px;color:var(--tx3)">${od}</td>
+        <td><span class="sty ${ob.kind==='bullish'?'sy-cb':'sy-cs'}">${ob.kind.toUpperCase()}</span></td>
+        <td style="color:${oc}">${CS}${ob.high.toFixed(2)}</td>
+        <td style="color:${oc}">${CS}${ob.low.toFixed(2)}</td>
+        <td style="font-size:8px;color:var(--tx2)">${ob.label}</td></tr>`;
+    }).join('')}</tbody></table></div></div>`:'' ;
+
+  const setupH=s?`
+  <div class="setup fi">
+    <div class="sh2">
+      <div style="font-family:var(--D);font-size:13px;font-weight:700;color:${s.bias==='LONG'?'var(--G)':'var(--R)'}">${s.bias==='LONG'?'▲':'▼'} ${s.bias} — ${s.sig}</div>
+      <span class="tag ${s.bias==='LONG'?'tG':'tR'}">${s.rr} R:R</span>
+    </div>
+    <div class="sg">
+      <div class="sf"><div class="sfl">Entry</div><div class="sfv" style="color:var(--C)">${CS}${s.entry.toFixed(2)}</div><div style="font-size:7px;color:var(--tx3)">On candle close</div></div>
+      <div class="sf"><div class="sfl">Stop Loss</div><div class="sfv" style="color:var(--R)">${CS}${s.sl.toFixed(2)}</div><div style="font-size:7px;color:var(--tx3)">1.5× ATR</div></div>
+      <div class="sf"><div class="sfl">Target 1 (1R)</div><div class="sfv" style="color:var(--G)">${CS}${s.t1.toFixed(2)}</div><div style="font-size:7px;color:var(--tx3)">Book 40–50%</div></div>
+      <div class="sf"><div class="sfl">Target 2 (2R)</div><div class="sfv" style="color:var(--G)">${CS}${s.t2.toFixed(2)}</div><div style="font-size:7px;color:var(--tx3)">Trail rest</div></div>
+    </div>
+    <div class="sft">ATR(14 Wilder) = ${atrT} · Last SH = ${shLv} · Last SL = ${slLv} · Risk ≤1–2% per trade</div>
+  </div>`:'' ;
+
+  document.getElementById('main').innerHTML=`
+  <div class="dh fi">
+    <div>
+      <div class="dt">${r.sym}<span class="ex">${exch}</span></div>
+      <div class="ds"><span style="cursor:pointer;color:var(--C3)" onclick="toggleLog()">📋 LOGS</span> · SMC Zeiierman Spec</div>
+    </div>
+    <div style="text-align:right">
+      <div class="dp" style="color:${tc}">${fp(r,r.price)}</div>
+      <div class="dc" style="color:${cc}">${chgT}</div>
+      <div style="font-size:8px;color:${tc};margin-top:2px;text-transform:uppercase;letter-spacing:.1em">${r.trend} TREND</div>
+    </div>
+  </div>
+
+  <div class="src-banner ${srcMap[r.source]||'sb-demo'} fi">${srcTxt[r.source]||'● '+r.source} — ${r.data.length} candles (${r.currency||'—'})</div>
+
+  <div class="mr fi">
+    <div class="mc"><div class="ml">Signal</div><div class="mv" style="color:${sigC}">${L.type||'—'}</div><div class="ms">${(L.dir||'').toUpperCase()}</div></div>
+    <div class="mc"><div class="ml">Trend</div><div class="mv" style="color:${tc}">${r.trend.toUpperCase()}</div><div class="ms">BIAS</div></div>
+    <div class="mc"><div class="ml">CHoCH</div><div class="mv" style="color:${r.chochDone?'var(--G)':'var(--tx3)'}">${r.chochDone?'CONFIRMED':'PENDING'}</div><div class="ms">${r.chochDone?'REVERSAL':''}</div></div>
+    <div class="mc"><div class="ml">OBs</div><div class="mv" style="color:var(--A)">${(r.orderBlocks||[]).length}</div><div class="ms">ORDER BLOCKS</div></div>
+    <div class="mc"><div class="ml">FVGs</div><div class="mv" style="color:var(--C)">${(r.fvgs||[]).length}</div><div class="ms">IMBALANCES</div></div>
+  </div>
+
+  <div class="tv-card fi">
+    <div class="tv-h">
+      <span>TRADINGVIEW — ${tvSym2} (${tvInt})</span>
+      <span class="tv-badge">FREE WIDGET</span>
+    </div>
+    <div id="tv-box"></div>
+  </div>
+
+  <div class="card fi">
+    <div class="card-t">
+      <span>SMC SWING OVERLAY — HH/HL/LH/LL · BMS · CHoCH · OB · FVG</span>
+      <div style="display:flex;gap:8px">
+        <span style="display:flex;align-items:center;gap:3px;font-size:7px;color:var(--G)"><span style="width:7px;height:7px;background:var(--G);display:inline-block;border-radius:1px"></span>HH/HL</span>
+        <span style="display:flex;align-items:center;gap:3px;font-size:7px;color:var(--R)"><span style="width:7px;height:7px;background:var(--R);display:inline-block;border-radius:1px"></span>LH/LL</span>
+        <span style="display:flex;align-items:center;gap:3px;font-size:7px;color:var(--A)"><span style="width:7px;height:7px;background:var(--A);display:inline-block;border-radius:1px"></span>OB</span>
+        <span style="display:flex;align-items:center;gap:3px;font-size:7px;color:var(--C)"><span style="width:7px;height:7px;background:var(--C);opacity:.5;display:inline-block;border-radius:1px"></span>FVG</span>
+      </div>
+    </div>
+    <div class="cw"><canvas id="pc" aria-label="SMC chart ${r.sym}"></canvas></div>
+  </div>
+
+  ${setupH}
+
+  <div class="tcard fi">
+    <div class="tcard-t">SIGNAL HISTORY — BMS / CHoCH (close-confirmed)</div>
+    <div style="overflow-x:auto"><table>
+      <thead><tr><th>DATE</th><th>TYPE</th><th>DIR</th><th>PRICE</th><th>LEVEL</th><th>ACTION</th></tr></thead>
+      <tbody>${sigsH}</tbody>
+    </table></div>
+  </div>
+
+  ${obH}
+
+  <div class="aicard fi">
+    <div class="aih">
+      <div class="ait">AI ANALYSIS — CLAUDE SONNET</div>
+      <button class="ai-btn" onclick="getAI('${r.sym}')">ANALYZE ↗</button>
+    </div>
+    <div class="aib idle" id="ai-box">Click ANALYZE for AI-powered SMC breakdown.</div>
+  </div>
+
+  <div class="disc fi">
+    <strong style="color:var(--A)">⚠</strong> Educational only.
+    ${r.source==='demo'?'<strong style="color:var(--R)">DEMO DATA — not real prices.</strong> Run smc_proxy.py for live data.':''}
+    Not SEBI registered. Not investment advice. Always validate signals manually.
+  </div>`;
+
+  buildChart(r);
+  loadTV(r.sym, tvInt);
+}
+
+// ══════════════════════════════════════════════════════
+// CHART — Zeiierman style with OB boxes, FVG, HH/HL labels
+// ══════════════════════════════════════════════════════
+function buildChart(r){
+  if(chartInst){chartInst.destroy();chartInst=null;}
+  const cv=document.getElementById('pc'); if(!cv)return;
+  const CS=ccy(r);
+  const SHOW=80, dataStart=r.data.length-SHOW;
+  const sl=r.data.slice(-SHOW); const n=sl.length; if(!n)return;
+  const labels=sl.map(b=>b.date instanceof Date?b.date.toLocaleDateString('en-IN',{day:'2-digit',month:'short'}):String(b.date).slice(0,6));
+  const closes=sl.map(b=>b.close);
+  const shPts=sl.map(b=>b.swingHigh?b.high:null);
+  const slPts=sl.map(b=>b.swingLow?b.low:null);
+  const hhA=new Array(n).fill(null),hlA=new Array(n).fill(null);
+  const lhA=new Array(n).fill(null),llA=new Array(n).fill(null);
+  const bmsB=new Array(n).fill(null),bmsS=new Array(n).fill(null);
+  const chochB=new Array(n).fill(null),chochS=new Array(n).fill(null);
+  (r.swingPoints||[]).forEach(sp=>{
+    const ci=sp.idx-dataStart; if(ci<0||ci>=n)return;
+    if(sp.label==='HH')hhA[ci]=sp.price;else if(sp.label==='HL')hlA[ci]=sp.price;
+    else if(sp.label==='LH')lhA[ci]=sp.price;else if(sp.label==='LL')llA[ci]=sp.price;
+  });
+  (r.signals||[]).forEach(sig=>{
+    const ci=sig.idx-dataStart; if(ci<0||ci>=n)return;
+    if(sig.type==='BMS'){if(sig.dir==='bullish')bmsB[ci]=sig.price;else bmsS[ci]=sig.price;}
+    else if(sig.type==='CHoCH'){if(sig.dir==='bullish')chochB[ci]=sig.price;else chochS[ci]=sig.price;}
+  });
+
+  const plugin={id:'smc',afterDraw(chart){
+    const{ctx,scales:{x,y}}=chart; ctx.save();
+    // OBs
+    (r.orderBlocks||[]).forEach(ob=>{
+      const od=ob.date instanceof Date?ob.date.toDateString():'';
+      const ci=sl.findIndex(b=>b.date instanceof Date&&b.date.toDateString()===od);
+      if(ci<0)return;
+      const x0=x.getPixelForValue(ci),x1=x.getPixelForValue(Math.min(ci+8,n-1));
+      const yT=y.getPixelForValue(ob.high),yB=y.getPixelForValue(ob.low);
+      ctx.fillStyle=ob.kind==='bullish'?'rgba(0,224,122,.1)':'rgba(255,64,96,.1)';
+      ctx.strokeStyle=ob.kind==='bullish'?'rgba(0,224,122,.5)':'rgba(255,64,96,.5)';
+      ctx.lineWidth=1; ctx.fillRect(x0,yT,x1-x0,yB-yT); ctx.strokeRect(x0,yT,x1-x0,yB-yT);
+      ctx.fillStyle=ob.kind==='bullish'?'rgba(0,224,122,.8)':'rgba(255,64,96,.8)';
+      ctx.font='bold 7px IBM Plex Mono'; ctx.fillText('OB',x0+2,yT+(yB-yT)/2+3);
+    });
+    // FVGs
+    (r.fvgs||[]).forEach(fvg=>{
+      const fd=fvg.date instanceof Date?fvg.date.toDateString():'';
+      const ci=sl.findIndex(b=>b.date instanceof Date&&b.date.toDateString()===fd);
+      if(ci<0)return;
+      const x0=x.getPixelForValue(ci),x1=x.getPixelForValue(Math.min(ci+12,n-1));
+      const yT=y.getPixelForValue(fvg.top),yB=y.getPixelForValue(fvg.bottom);
+      if(Math.abs(yB-yT)<1)return;
+      ctx.setLineDash([3,3]);
+      ctx.fillStyle=fvg.kind==='bullish'?'rgba(0,180,220,.06)':'rgba(180,139,250,.06)';
+      ctx.strokeStyle=fvg.kind==='bullish'?'rgba(0,180,220,.3)':'rgba(180,139,250,.3)';
+      ctx.lineWidth=.7; ctx.fillRect(x0,yT,x1-x0,yB-yT); ctx.strokeRect(x0,yT,x1-x0,yB-yT);
+      ctx.setLineDash([]); ctx.fillStyle=fvg.kind==='bullish'?'rgba(0,180,220,.7)':'rgba(180,139,250,.7)';
+      ctx.font='7px IBM Plex Mono'; ctx.fillText('FVG',x0+2,(yT+yB)/2+3);
+    });
+    // Structure lines
+    ctx.setLineDash([5,5]); ctx.lineWidth=.6;
+    (r.signals||[]).filter(s=>['BMS','CHoCH'].includes(s.type)).slice(-4).forEach(sig=>{
+      ctx.strokeStyle=sig.dir==='bullish'?'rgba(0,224,122,.3)':'rgba(255,64,96,.3)';
+      const yPx=y.getPixelForValue(sig.structureLevel);
+      ctx.beginPath(); ctx.moveTo(x.getPixelForValue(0),yPx); ctx.lineTo(x.getPixelForValue(n-1),yPx); ctx.stroke();
+    });
+    ctx.setLineDash([]);
+    // Swing labels
+    ctx.textAlign='center'; ctx.font='bold 9px IBM Plex Mono';
+    [{arr:hhA,c:'#00e07a',off:-13,t:'HH'},{arr:hlA,c:'#00e07a',off:16,t:'HL'},
+     {arr:lhA,c:'#ff4060',off:-13,t:'LH'},{arr:llA,c:'#ff4060',off:16,t:'LL'}]
+    .forEach(({arr,c,off,t})=>{
+      arr.forEach((v,i)=>{
+        if(v==null)return;
+        const px=x.getPixelForValue(i),py=y.getPixelForValue(v)+off;
+        const tw=ctx.measureText(t).width+6;
+        ctx.fillStyle=c+'22'; ctx.fillRect(px-tw/2,py-9,tw,11);
+        ctx.fillStyle=c; ctx.fillText(t,px,py);
+      });
+    });
+    // Signal labels
+    [{arr:bmsB,c:'#00e07a',t:'BMS',off:16},{arr:bmsS,c:'#ff4060',t:'BMS',off:-12},
+     {arr:chochB,c:'#00d4ff',t:'CHoCH',off:16},{arr:chochS,c:'#b48bfa',t:'CHoCH',off:-12}]
+    .forEach(({arr,c,t,off})=>{
+      ctx.font='bold 8px IBM Plex Mono';
+      arr.forEach((v,i)=>{
+        if(v==null)return;
+        const px=x.getPixelForValue(i),py=y.getPixelForValue(v)+off;
+        const tw=ctx.measureText(t).width+8;
+        ctx.fillStyle=c+'22'; ctx.fillRect(px-tw/2,py-9,tw,12);
+        ctx.fillStyle=c; ctx.fillText(t,px,py);
+      });
+    });
+    ctx.textAlign='start'; ctx.restore();
+  }};
+
+  chartInst=new Chart(cv.getContext('2d'),{
+    type:'line', plugins:[plugin],
+    data:{labels,datasets:[
+      {label:'Price',data:closes,borderColor:'#00d4ff',borderWidth:1.5,pointRadius:0,tension:.3,fill:false,yAxisID:'y'},
+      {label:'SH',data:shPts,type:'scatter',pointBackgroundColor:'#f5a623',pointBorderColor:'#f5a623',pointRadius:4,pointStyle:'triangle',yAxisID:'y',showLine:false},
+      {label:'SL',data:slPts,type:'scatter',pointBackgroundColor:'#b48bfa',pointBorderColor:'#b48bfa',pointRadius:4,pointStyle:'triangle',rotation:180,yAxisID:'y',showLine:false},
+    ]},
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      animation:{duration:350,easing:'easeOutQuart'},
+      layout:{padding:{top:22,bottom:8}},
+      plugins:{legend:{display:false},tooltip:{
+        backgroundColor:'#111827',borderColor:'#1e2e44',borderWidth:1,
+        titleColor:'#7a9ab8',bodyColor:'#d8e4f0',
+        titleFont:{family:'IBM Plex Mono',size:8},bodyFont:{family:'IBM Plex Mono',size:9},padding:6,
+        callbacks:{label:c=>c.dataset.label+': '+CS+Number(c.raw||0).toFixed(2)}
+      }},
+      scales:{
+        x:{grid:{color:'rgba(30,46,68,.4)',lineWidth:.5},ticks:{color:'#3d5570',font:{family:'IBM Plex Mono',size:8},maxRotation:0,autoSkip:true,maxTicksLimit:10}},
+        y:{grid:{color:'rgba(30,46,68,.4)',lineWidth:.5},ticks:{color:'#3d5570',font:{family:'IBM Plex Mono',size:8},callback:v=>CS+Number(v).toFixed(2)},position:'right'}
+      }
+    }
+  });
+}
+
+const TV_SYMBOLS={}; // reserved for future use
+
+function loadTV(sym, interval){
+  const box=document.getElementById('tv-box');
+  if(!box)return;
+  box.innerHTML='';
+
+  // NSE stocks use BSE: prefix — available on TradingView free tier
+  const tvSym='BSE:'+sym;
+
+  const container=document.createElement('div');
+  container.id='tv-widget-container';
+  container.style.cssText='height:380px;width:100%;min-height:380px';
+  box.appendChild(container);
+
+  if(window.TradingView){
+    _initTVWidget(tvSym, interval, container.id);
+    return;
+  }
+
+  const script=document.createElement('script');
+  script.src='https://s3.tradingview.com/tv.js';
+  script.async=true;
+  script.onload=()=>_initTVWidget(tvSym, interval, container.id);
+  script.onerror=()=>{
+    container.innerHTML=`<div style="display:flex;flex-direction:column;align-items:center;
+      justify-content:center;height:380px;color:#3d5570;font-family:IBM Plex Mono;
+      font-size:11px;gap:10px;background:#0c1018;border-radius:3px">
+      <div style="opacity:.3;font-size:28px">📈</div>
+      <div>TradingView failed to load</div>
+      <a href="https://www.tradingview.com/chart/?symbol=${tvSym}" target="_blank"
+        style="color:#0099cc;font-size:10px;text-decoration:none">
+        Open ${tvSym} on TradingView ↗</a>
+    </div>`;
+  };
+  document.head.appendChild(script);
+}
+
+function _initTVWidget(sym, interval, containerId){
+  try{
+    new TradingView.widget({
+      container_id:       containerId,
+      autosize:           true,
+      symbol:             sym,
+      interval:           interval,
+      timezone:           'Asia/Kolkata',
+      theme:              'dark',
+      style:              '1',
+      locale:             'en',
+      toolbar_bg:         '#0c1018',
+      enable_publishing:  false,
+      hide_side_toolbar:  false,
+      allow_symbol_change: true,
+      save_image:         false,
+      studies:            ['RSI@tv-basicstudies','MACD@tv-basicstudies'],
+      backgroundColor:    'rgba(7,9,15,1)',
+      gridColor:          'rgba(30,46,68,0.5)',
+    });
+    console.log('[TV] Widget loaded for',sym);
+  }catch(e){
+    console.warn('[TV] Widget init failed:',e.message);
+    const box=document.getElementById('tv-box');
+    if(box) box.innerHTML=`<div style="display:flex;flex-direction:column;align-items:center;
+      justify-content:center;height:380px;color:#3d5570;font-family:IBM Plex Mono;
+      font-size:11px;gap:10px;background:#0c1018;border-radius:3px">
+      <div>Chart unavailable for ${sym}</div>
+      <a href="https://www.tradingview.com/chart/?symbol=${sym}" target="_blank"
+        style="color:#0099cc;font-size:10px">Open on TradingView ↗</a>
+    </div>`;
+  }
+}
+
+// ══════════════════════════════════════════════════════
+// AI ANALYSIS — via local proxy (needs anthropic api key)
+// ══════════════════════════════════════════════════════
+async function getAI(sym){
+  const box=document.getElementById('ai-box'); if(!box)return;
+
+  // Check for API key
+  const apiKey=(document.getElementById('ant-key')||{}).value?.trim()||
+               sessionStorage.getItem('ant-key')||'';
+  if(!apiKey){
+    box.className='aib';
+    box.textContent='⚠ Anthropic API key needed.\n\nPaste your API key in the sidebar field labelled "ANTHROPIC API KEY" then click ANALYZE again.\n\nGet a free key at: console.anthropic.com';
+    return;
+  }
+
+  box.className='aib loading'; box.textContent='Analysing with Claude...';
+  const r=results.find(x=>x.sym===sym)||{sym,signals:[],trend:'neutral',setup:null,price:0,source:'demo',currency:'INR'};
+  const CS=ccy(r);
+  const ss=(r.signals||[]).slice(-5).map(s=>`${s.type} ${s.dir} @ ${CS}${Number(s.price).toFixed(2)}`).join(', ');
+  const st=r.setup?`${r.setup.bias} Entry:${CS}${r.setup.entry.toFixed(2)} SL:${CS}${r.setup.sl.toFixed(2)} T1:${CS}${r.setup.t1.toFixed(2)} T2:${CS}${r.setup.t2.toFixed(2)} ATR:${CS}${r.setup.atr.toFixed(2)}`:'No setup.';
+  const prompt=`You are an SMC (Smart Money Concepts) trading analyst. Provide a concise, structured analysis in under 180 words.
+
+Stock: ${sym} (${mkt}) | Price: ${CS}${Number(r.price).toFixed(2)} | Trend: ${r.trend} | Data: ${r.source}
+Recent signals: ${ss||'None'} | ${st}
+Last Swing High: ${r.lastSH?CS+r.lastSH.price.toFixed(2):'—'} | Last Swing Low: ${r.lastSL?CS+r.lastSL.price.toFixed(2):'—'}
+
+Cover:
+1. Market structure — what does the BMS/CHoCH tell us?
+2. Key S/R levels to watch
+3. Trade bias and main risk factors
+4. Exact entry confirmation trigger
+5. Risk management note
+
+Be direct and practical.${r.source==='demo'?' Note: this is DEMO synthetic data, not real market prices.':''}`;
+
+  // Try proxy first (avoids CORS), then direct
+  const endpoints=[
+    // Via local proxy /claude endpoint (we'll add this to proxy)
+    proxyOk ? {
+      url:`${PROXY_BASE}/claude`,
+      headers:{'Content-Type':'application/json','X-ANT-KEY':apiKey},
+      body:JSON.stringify({prompt})
+    } : null,
+    // Direct Anthropic API (works when opened via a web server, not file://)
+    {
+      url:'https://api.anthropic.com/v1/messages',
+      headers:{
+        'Content-Type':'application/json',
+        'x-api-key':apiKey,
+        'anthropic-version':'2023-06-01',
+        'anthropic-dangerous-direct-browser-access':'true'
+      },
+      body:JSON.stringify({
+        model:'claude-sonnet-4-20250514',
+        max_tokens:800,
+        messages:[{role:'user',content:prompt}]
+      })
+    }
+  ].filter(Boolean);
+
+  for(const ep of endpoints){
+    try{
+      const resp=await Promise.race([
+        fetch(ep.url,{method:'POST',headers:ep.headers,body:ep.body}),
+        new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),20000))
+      ]);
+      if(!resp.ok){
+        const err=await resp.text().catch(()=>'');
+        log('warn',`AI ${ep.url.slice(0,40)}: HTTP${resp.status} ${err.slice(0,80)}`);
+        continue;
+      }
+      const d=await resp.json();
+      // Handle both proxy response {text:...} and direct API response
+      const text=d.text||d.content?.[0]?.text||d.error||'No response';
+      box.className='aib';
+      box.textContent=text;
+      return;
+    }catch(e){
+      log('warn',`AI endpoint failed: ${e.message}`);
+    }
+  }
+
+  box.className='aib';
+  box.textContent=`Could not reach Claude API.\n\nTroubleshooting:\n• Check your API key is correct (starts with sk-ant-)\n• If using file:// — open via a local web server instead:\n  python -m http.server 9000  →  open http://localhost:9000\n• Or use the proxy: add /claude endpoint to smc_proxy.py\n\nManual SMC read:\n• BMS = trend continuation. Trade in trend direction.\n• CHoCH = institutional reversal. Enter on OB retest.\n• Place SL beyond the Order Block.\n• T1 = 1R (close 50%), trail rest to T2 = 2R.`;
+}
+
+// ══════════════════════════════════════════════════════
+// PROXY DOWNLOAD — smc_proxy.py v2.0
+// ══════════════════════════════════════════════════════
+function downloadProxy(){
+  const py=`#!/usr/bin/env python3
+"""
+smc_proxy.py v2.0 — SMC Detector data proxy
+Handles Yahoo Finance crumb auth + Kite API
+Run: python smc_proxy.py
+Port: http://localhost:8000
+"""
+import http.server, urllib.request, urllib.parse, urllib.error
+import json, time, threading, sys
+
+PORT   = 8000
+_lock  = threading.Lock()
+_crumb = None
+_jar   = None
+_ts    = 0
+TTL    = 3600
+
+HDR = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36',
+    'Accept': 'application/json,text/html,*/*',
+    'Accept-Language': 'en-US,en;q=0.9',
+    'Referer': 'https://finance.yahoo.com/',
+}
+
+def refresh_crumb():
+    global _crumb, _jar, _ts
+    try:
+        jar = urllib.request.HTTPCookieProcessor()
+        opener = urllib.request.build_opener(jar)
+        opener.open(urllib.request.Request('https://finance.yahoo.com/', headers=HDR), timeout=10)
+        req = urllib.request.Request('https://query1.finance.yahoo.com/v1/test/getcrumb', headers=HDR)
+        with opener.open(req, timeout=10) as r:
+            crumb = r.read().decode().strip()
+        if crumb and len(crumb) > 3:
+            _crumb, _jar, _ts = crumb, jar, time.time()
+            print(f'[Yahoo] crumb OK: {crumb[:8]}...')
+            return True
+    except Exception as e:
+        print(f'[Yahoo] crumb failed: {e}')
+    return False
+
+def get_crumb():
+    with _lock:
+        if not _crumb or (time.time()-_ts) > TTL:
+            refresh_crumb()
+        return _crumb, _jar
+
+def yahoo_fetch(symbol, range_='1y', interval='1d'):
+    crumb, jar = get_crumb()
+    if not crumb: return None, 'no_crumb'
+    nse = symbol.endswith('.NS') or symbol.endswith('.BO')
+    url = (f'https://query1.finance.yahoo.com/v8/finance/chart/{symbol}'
+           f'?range={range_}&interval={interval}&includePrePost=false'
+           f'&events=div%2Csplit&region={"IN" if nse else "US"}'
+           f'&lang={"en-IN" if nse else "en-US"}&corsDomain=finance.yahoo.com'
+           f'&crumb={urllib.parse.quote(crumb)}')
+    try:
+        req = urllib.request.Request(url, headers=HDR)
+        with jar.open(req, timeout=12) as r:
+            return r.read(), None
+    except urllib.error.HTTPError as e:
+        if e.code == 401:
+            with _lock: globals()['_crumb'] = None
+        return None, f'HTTP{e.code}'
+    except Exception as e:
+        return None, str(e)
+
+class H(http.server.BaseHTTPRequestHandler):
+    def log_message(self, *a): pass
+
+    def do_OPTIONS(self):
+        self.send_response(200); self._cors(); self.end_headers()
+
+    def do_GET(self):
+        p = urllib.parse.urlparse(self.path)
+        q = urllib.parse.parse_qs(p.query)
+        path = p.path.rstrip('/')
+
+        if path == '/claude':
+            ant_key = self.headers.get('X-ANT-KEY','')
+            if not ant_key:
+                self._json(400, {'error': 'missing X-ANT-KEY header'}); return
+            length = int(self.headers.get('Content-Length', 0))
+            body_raw = self.rfile.read(length) if length else b'{}'
+            try:
+                body_json = json.loads(body_raw)
+                prompt = body_json.get('prompt','')
+            except: prompt = ''
+            if not prompt:
+                self._json(400, {'error': 'missing prompt'}); return
+            payload = json.dumps({
+                'model': 'claude-sonnet-4-20250514',
+                'max_tokens': 800,
+                'messages': [{'role': 'user', 'content': prompt}]
+            }).encode()
+            req = urllib.request.Request(
+                'https://api.anthropic.com/v1/messages',
+                data=payload,
+                headers={
+                    'Content-Type': 'application/json',
+                    'x-api-key': ant_key,
+                    'anthropic-version': '2023-06-01'
+                }
+            )
+            try:
+                with urllib.request.urlopen(req, timeout=30) as r:
+                    resp_data = json.loads(r.read())
+                    text = resp_data.get('content', [{}])[0].get('text','No response')
+                self._json(200, {'text': text})
+            except urllib.error.HTTPError as e:
+                err_body = e.read().decode()
+                self._json(e.code, {'error': err_body[:200]})
+            except Exception as e:
+                self._json(502, {'error': str(e)})
+            return
+
+        if path == '/health':
+            self._json(200, {'status':'ok','version':'2.0','crumb':bool(_crumb)})
+            return
+
+        if path == '/yahoo':
+            sym = q.get('symbol',['AAPL'])[0]
+            rng = q.get('range',['1y'])[0]
+            ivl = q.get('interval',['1d'])[0]
+            print(f'[Yahoo] {sym} {rng}/{ivl}')
+            data, err = yahoo_fetch(sym, rng, ivl)
+            if data:
+                self.send_response(200); self._cors()
+                self.send_header('Content-Type','application/json')
+                self.end_headers(); self.wfile.write(data)
+            else:
+                self._json(502, {'error': err})
+            return
+
+        if path == '/kite':
+            target = q.get('url',[None])[0]
+            key    = self.headers.get('X-SMC-Key','')
+            tok    = self.headers.get('X-SMC-Token','')
+            if not target: self._json(400,{'error':'missing url'}); return
+            req = urllib.request.Request(target)
+            req.add_header('X-Kite-Version','3')
+            if key and tok: req.add_header('Authorization',f'token {key}:{tok}')
+            try:
+                with urllib.request.urlopen(req, timeout=10) as r:
+                    body = r.read()
+                self.send_response(200); self._cors()
+                self.send_header('Content-Type','application/json')
+                self.end_headers(); self.wfile.write(body)
+            except Exception as e:
+                self._json(502,{'error':str(e)})
+            return
+
+        # Legacy v1 format: /?url=<target>
+        target = q.get('url',[None])[0]
+        if target:
+            req = urllib.request.Request(target, headers=HDR)
+            key = self.headers.get('X-SMC-Key','')
+            tok = self.headers.get('X-SMC-Token','')
+            if key and tok: req.add_header('Authorization',f'token {key}:{tok}')
+            req.add_header('X-Kite-Version','3')
+            try:
+                with urllib.request.urlopen(req, timeout=10) as r:
+                    body = r.read()
+                self.send_response(200); self._cors()
+                self.send_header('Content-Type','application/json')
+                self.end_headers(); self.wfile.write(body)
+            except Exception as e: self._json(502,{'error':str(e)})
+            return
+
+        self._json(404,{'error':'unknown endpoint'})
+
+    def _json(self, code, obj):
+        b = json.dumps(obj).encode()
+        self.send_response(code); self._cors()
+        self.send_header('Content-Type','application/json')
+        self.end_headers(); self.wfile.write(b)
+
+    def _cors(self):
+        origin = self.headers.get('Origin','*')
+        self.send_header('Access-Control-Allow-Origin', origin or '*')
+        self.send_header('Access-Control-Allow-Headers','Accept,Content-Type,X-SMC-Key,X-SMC-Token,Cache-Control')
+        self.send_header('Access-Control-Allow-Methods','GET,OPTIONS')
+        self.send_header('Access-Control-Allow-Credentials','false')
+        self.send_header('Vary','Origin')
+
+print(f'SMC Proxy v2.0  http://localhost:{PORT}')
+print('Endpoints: /health  /yahoo  /kite')
+print('Ctrl+C to stop\\n')
+threading.Thread(target=refresh_crumb, daemon=True).start()
+http.server.HTTPServer(('localhost', PORT), H).serve_forever()
+`;
+  const a=document.createElement('a');
+  a.href='data:text/plain;charset=utf-8,'+encodeURIComponent(py);
+  a.download='smc_proxy.py'; a.click();
+  toast('smc_proxy.py v2.0 downloaded');
+}
+
+// ══════════════════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════════════════
+updNav();
+setDataStatus('err','Not checked — click ▶ CHECK PROXY');
+
+window.addEventListener('load',()=>{
+  const k=sessionStorage.getItem('k'),t=sessionStorage.getItem('t');
+  if(k)document.getElementById('k-key').value=k;
+  if(t)document.getElementById('k-tok').value=t;
+  const ak=sessionStorage.getItem('ant-key');
+  if(ak&&document.getElementById('ant-key'))document.getElementById('ant-key').value=ak;
+  checkProxy();
+});
+</script>
+</body>
+</html>

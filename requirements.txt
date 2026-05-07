@@ -1,0 +1,22 @@
+# SMC Detector — smc_proxy.py dependencies
+# All modules used are Python standard library (built-in).
+# No pip install required.
+#
+# Python version requirement: >= 3.8
+#
+# Built-in modules used:
+#   http.server   — HTTP server
+#   urllib        — HTTP requests
+#   json          — JSON parsing
+#   threading     — background crumb refresh
+#   time          — crumb TTL tracking
+#   os            — environment variable reading
+#   sys           — system utilities
+#
+# For Render/Railway deployment:
+#   This file satisfies the requirement for a requirements.txt
+#   without installing anything extra.
+
+# Uncomment below ONLY if you want to use the kiteconnect
+# official SDK instead of raw urllib calls (optional):
+# kiteconnect==5.0.1
