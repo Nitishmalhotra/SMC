@@ -30,7 +30,6 @@ import time
 import threading
 import os
 import sys
-pip install -U yfinance
 
 # ─────────────────────────────────────────────────────
 # CONFIG — reads from environment variables first,
