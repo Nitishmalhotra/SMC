@@ -1,29 +1,26 @@
 #!/usr/bin/env python3
 """
-smc_proxy.py v3.1 — Production Ready
+smc_proxy.py v4.0 — Production Ready
 ====================================
 
-Runs locally AND on cloud platforms (Render, Railway, Fly.io).
+Frontend:
+    /
+    -> serves smc_detector_v5.html
 
-Local:
-    python smc_proxy.py
+Backend APIs:
+    /health
+    /yahoo
+    /kite
+    /claude
+    /?url=
 
-Cloud:
-    Set environment variables in Render/Railway dashboard.
+Deployment:
+    Render / Railway / Fly.io compatible
 
-Environment Variables:
-    PORT
-    ANT_KEY
-    KITE_KEY
-    KITE_TOKEN
+Place this file AND:
+    smc_detector_v5.html
 
-Endpoints:
-    GET  /
-    GET  /health
-    GET  /yahoo?symbol=RELIANCE.NS&range=1y&interval=1d
-    GET  /kite?url=<kite_api_path>
-    POST /claude
-    GET  /?url=<any>
+in the SAME folder.
 """
 
 import http.server
@@ -60,7 +57,7 @@ if not KITE_TOKEN and LOCAL_KITE_TOKEN:
     KITE_TOKEN = LOCAL_KITE_TOKEN
 
 # ─────────────────────────────────────────────────────
-# YAHOO FINANCE
+# YAHOO CONFIG
 # ─────────────────────────────────────────────────────
 
 _lock = threading.Lock()
@@ -76,22 +73,34 @@ YF_HEADERS = {
         "AppleWebKit/537.36 (KHTML, like Gecko) "
         "Chrome/120.0.0.0 Safari/537.36",
 
-    "Accept": "application/json,text/html,*/*",
-    "Accept-Language": "en-US,en;q=0.9",
-    "Referer": "https://finance.yahoo.com/",
+    "Accept":
+        "application/json,text/html,*/*",
+
+    "Accept-Language":
+        "en-US,en;q=0.9",
+
+    "Referer":
+        "https://finance.yahoo.com/",
 }
 
+# ─────────────────────────────────────────────────────
+# YAHOO AUTH
+# ─────────────────────────────────────────────────────
 
 def refresh_crumb():
-    global _crumb, _opener, _crumb_ts
+
+    global _crumb
+    global _opener
+    global _crumb_ts
 
     print("[Yahoo] Refreshing crumb...", flush=True)
 
     try:
+
         jar = urllib.request.HTTPCookieProcessor()
+
         opener = urllib.request.build_opener(jar)
 
-        # Step 1 — Get Yahoo session cookie
         req1 = urllib.request.Request(
             "https://finance.yahoo.com/",
             headers=YF_HEADERS
@@ -99,51 +108,74 @@ def refresh_crumb():
 
         opener.open(req1, timeout=12)
 
-        # Step 2 — Get crumb token
         req2 = urllib.request.Request(
             "https://query1.finance.yahoo.com/v1/test/getcrumb",
             headers=YF_HEADERS
         )
 
         with opener.open(req2, timeout=12) as r:
+
             crumb = r.read().decode("utf-8").strip()
 
         if crumb and len(crumb) > 3:
+
             with _lock:
+
                 _crumb = crumb
                 _opener = opener
                 _crumb_ts = time.time()
 
-            print(f"[Yahoo] Crumb OK: {crumb[:8]}...", flush=True)
+            print(
+                f"[Yahoo] Crumb OK: {crumb[:8]}...",
+                flush=True
+            )
+
             return True
 
         print("[Yahoo] Empty crumb response", flush=True)
 
     except Exception as e:
-        print(f"[Yahoo] Crumb refresh failed: {e}", flush=True)
+
+        print(
+            f"[Yahoo] Crumb refresh failed: {e}",
+            flush=True
+        )
 
     return False
 
 
 def get_crumb_and_opener():
+
     with _lock:
-        if _crumb and (time.time() - _crumb_ts) < CRUMB_TTL:
+
+        if _crumb and (
+            time.time() - _crumb_ts
+        ) < CRUMB_TTL:
+
             return _crumb, _opener
 
     refresh_crumb()
 
     with _lock:
+
         return _crumb, _opener
 
 
+# ─────────────────────────────────────────────────────
+# YAHOO FETCH
+# ─────────────────────────────────────────────────────
+
 def yahoo_fetch(symbol, range_="1y", interval="1d"):
 
-    # Try crumb-based fetch first
     crumb, opener = get_crumb_and_opener()
 
-    is_nse = symbol.endswith(".NS") or symbol.endswith(".BO")
+    is_nse = (
+        symbol.endswith(".NS")
+        or symbol.endswith(".BO")
+    )
 
     region = "IN" if is_nse else "US"
+
     lang = "en-IN" if is_nse else "en-US"
 
     base_url = (
@@ -157,18 +189,29 @@ def yahoo_fetch(symbol, range_="1y", interval="1d"):
         f"&corsDomain=finance.yahoo.com"
     )
 
-    # Attempt with crumb first
+    # Try crumb version first
     if crumb and opener:
+
         try:
 
-            url = f"{base_url}&crumb={urllib.parse.quote(crumb)}"
+            url = (
+                f"{base_url}"
+                f"&crumb={urllib.parse.quote(crumb)}"
+            )
 
-            req = urllib.request.Request(url, headers=YF_HEADERS)
+            req = urllib.request.Request(
+                url,
+                headers=YF_HEADERS
+            )
 
             with opener.open(req, timeout=15) as r:
+
                 data = r.read()
 
-            print(f"[Yahoo] {symbol} OK (crumb)", flush=True)
+            print(
+                f"[Yahoo] {symbol} OK (crumb)",
+                flush=True
+            )
 
             return data, None
 
@@ -185,29 +228,45 @@ def yahoo_fetch(symbol, range_="1y", interval="1d"):
             )
 
             if e.code == 401:
+
                 with _lock:
                     global _crumb
                     _crumb = None
 
         except Exception as e:
-            print(f"[Yahoo] crumb fetch failed: {e}", flush=True)
 
-    # Fallback WITHOUT crumb
+            print(
+                f"[Yahoo] crumb fetch failed: {e}",
+                flush=True
+            )
+
+    # Fallback fetch without crumb
     try:
 
-        req = urllib.request.Request(base_url, headers=YF_HEADERS)
+        req = urllib.request.Request(
+            base_url,
+            headers=YF_HEADERS
+        )
 
         with urllib.request.urlopen(req, timeout=15) as r:
+
             data = r.read()
 
-        print(f"[Yahoo] {symbol} OK (fallback)", flush=True)
+        print(
+            f"[Yahoo] {symbol} OK (fallback)",
+            flush=True
+        )
 
         return data, None
 
     except Exception as e:
-        print(f"[Yahoo] fallback failed: {e}", flush=True)
-        return None, str(e)
 
+        print(
+            f"[Yahoo] fallback failed: {e}",
+            flush=True
+        )
+
+        return None, str(e)
 
 # ─────────────────────────────────────────────────────
 # HTTP HANDLER
@@ -216,31 +275,38 @@ def yahoo_fetch(symbol, range_="1y", interval="1d"):
 class SMCHandler(http.server.BaseHTTPRequestHandler):
 
     # ─────────────────────────────────────────────
-    # Cleaner logs
+    # LOGGING
     # ─────────────────────────────────────────────
     def log_message(self, fmt, *args):
+
         msg = fmt % args
 
         if any(code in msg for code in ["40", "50"]):
+
             print(f"[HTTP] {msg}", flush=True)
 
     # ─────────────────────────────────────────────
-    # HEAD SUPPORT (Render health checks)
+    # HEAD SUPPORT
     # ─────────────────────────────────────────────
     def do_HEAD(self):
 
         self.send_response(200)
+
         self._cors()
+
         self.send_header("Content-Length", "0")
+
         self.end_headers()
 
     # ─────────────────────────────────────────────
-    # OPTIONS (CORS preflight)
+    # OPTIONS
     # ─────────────────────────────────────────────
     def do_OPTIONS(self):
 
         self.send_response(200)
+
         self._cors()
+
         self.end_headers()
 
     # ─────────────────────────────────────────────
@@ -255,55 +321,48 @@ class SMCHandler(http.server.BaseHTTPRequestHandler):
         path = parsed.path.rstrip("/")
 
         # ─────────────────────────────────────────
-        # ROOT /
+        # ROOT -> smc_detector_v5.html
         # ─────────────────────────────────────────
         if path == "":
 
-            html = f"""
-            <html>
-            <head>
-                <title>SMC Proxy v3.1</title>
-            </head>
+            try:
 
-            <body style="font-family:Arial;padding:40px">
+                with open(
+                    "smc_detector_v5.html",
+                    "rb"
+                ) as f:
 
-                <h2>✅ SMC Proxy v3.1 Running</h2>
+                    body = f.read()
 
-                <p>Backend Status: ONLINE</p>
+                self.send_response(200)
 
-                <h3>Available Endpoints</h3>
+                self._cors()
 
-                <ul>
-                    <li>/health</li>
-                    <li>/yahoo?symbol=RELIANCE.NS</li>
-                    <li>/kite?url=...</li>
-                    <li>/claude</li>
-                    <li>/?url=...</li>
-                </ul>
+                self.send_header(
+                    "Content-Type",
+                    "text/html"
+                )
 
-                <hr>
+                self.send_header(
+                    "Content-Length",
+                    str(len(body))
+                )
 
-                <h3>Environment Status</h3>
+                self.end_headers()
 
-                <ul>
-                    <li>Yahoo Finance: ✅</li>
-                    <li>Kite API: {"✅ Configured" if KITE_KEY else "❌ Missing"}</li>
-                    <li>Claude AI: {"✅ Configured" if ANT_KEY else "❌ Missing"}</li>
-                </ul>
+                self.wfile.write(body)
 
-            </body>
-            </html>
-            """
+                print(
+                    "[Frontend] smc_detector_v5.html served",
+                    flush=True
+                )
 
-            body = html.encode("utf-8")
+            except Exception as e:
 
-            self.send_response(200)
-            self._cors()
-            self.send_header("Content-Type", "text/html")
-            self.send_header("Content-Length", str(len(body)))
-            self.end_headers()
-
-            self.wfile.write(body)
+                self._json(500, {
+                    "error":
+                        f"HTML load failed: {str(e)}"
+                })
 
             return
 
@@ -313,18 +372,36 @@ class SMCHandler(http.server.BaseHTTPRequestHandler):
         if path == "/health":
 
             self._json(200, {
+
                 "status": "ok",
-                "version": "3.1",
+
+                "version": "4.0",
+
                 "port": PORT,
+
                 "crumb": bool(_crumb),
-                "kite": bool(KITE_KEY and KITE_TOKEN),
+
+                "kite": bool(
+                    KITE_KEY and KITE_TOKEN
+                ),
+
                 "claude": bool(ANT_KEY),
+
+                "frontend":
+                    "smc_detector_v5.html",
+
                 "endpoints": [
+
                     "/",
+
                     "/health",
+
                     "/yahoo",
+
                     "/kite",
+
                     "/claude",
+
                     "/?url="
                 ]
             })
@@ -336,11 +413,20 @@ class SMCHandler(http.server.BaseHTTPRequestHandler):
         # ─────────────────────────────────────────
         if path == "/yahoo":
 
-            symbol = qs.get("symbol", ["RELIANCE.NS"])[0]
+            symbol = qs.get(
+                "symbol",
+                ["RELIANCE.NS"]
+            )[0]
 
-            range_ = qs.get("range", ["1y"])[0]
+            range_ = qs.get(
+                "range",
+                ["1y"]
+            )[0]
 
-            interval = qs.get("interval", ["1d"])[0]
+            interval = qs.get(
+                "interval",
+                ["1d"]
+            )[0]
 
             data, err = yahoo_fetch(
                 symbol,
@@ -351,6 +437,7 @@ class SMCHandler(http.server.BaseHTTPRequestHandler):
             if data:
 
                 self.send_response(200)
+
                 self._cors()
 
                 self.send_header(
@@ -370,7 +457,9 @@ class SMCHandler(http.server.BaseHTTPRequestHandler):
             else:
 
                 self._json(502, {
+
                     "error": err,
+
                     "symbol": symbol
                 })
 
@@ -384,26 +473,39 @@ class SMCHandler(http.server.BaseHTTPRequestHandler):
             target = qs.get("url", [None])[0]
 
             if not target:
+
                 self._json(400, {
-                    "error": "missing ?url= parameter"
+                    "error":
+                        "missing ?url= parameter"
                 })
+
                 return
 
             api_key = (
                 KITE_KEY
-                or self.headers.get("X-SMC-Key", "")
+                or self.headers.get(
+                    "X-SMC-Key",
+                    ""
+                )
             )
 
             api_token = (
                 KITE_TOKEN
-                or self.headers.get("X-SMC-Token", "")
+                or self.headers.get(
+                    "X-SMC-Token",
+                    ""
+                )
             )
 
             req = urllib.request.Request(target)
 
-            req.add_header("X-Kite-Version", "3")
+            req.add_header(
+                "X-Kite-Version",
+                "3"
+            )
 
             if api_key and api_token:
+
                 req.add_header(
                     "Authorization",
                     f"token {api_key}:{api_token}"
@@ -411,10 +513,15 @@ class SMCHandler(http.server.BaseHTTPRequestHandler):
 
             try:
 
-                with urllib.request.urlopen(req, timeout=12) as r:
+                with urllib.request.urlopen(
+                    req,
+                    timeout=12
+                ) as r:
+
                     body = r.read()
 
                 self.send_response(200)
+
                 self._cors()
 
                 self.send_header(
@@ -439,7 +546,8 @@ class SMCHandler(http.server.BaseHTTPRequestHandler):
             except urllib.error.HTTPError as e:
 
                 self._json(e.code, {
-                    "error": f"Kite HTTP{e.code}"
+                    "error":
+                        f"Kite HTTP{e.code}"
                 })
 
             except Exception as e:
@@ -451,7 +559,7 @@ class SMCHandler(http.server.BaseHTTPRequestHandler):
             return
 
         # ─────────────────────────────────────────
-        # Legacy /?url=
+        # Legacy passthrough /?url=
         # ─────────────────────────────────────────
         target = qs.get("url", [None])[0]
 
@@ -459,12 +567,18 @@ class SMCHandler(http.server.BaseHTTPRequestHandler):
 
             api_key = (
                 KITE_KEY
-                or self.headers.get("X-SMC-Key", "")
+                or self.headers.get(
+                    "X-SMC-Key",
+                    ""
+                )
             )
 
             api_token = (
                 KITE_TOKEN
-                or self.headers.get("X-SMC-Token", "")
+                or self.headers.get(
+                    "X-SMC-Token",
+                    ""
+                )
             )
 
             req = urllib.request.Request(
@@ -472,9 +586,13 @@ class SMCHandler(http.server.BaseHTTPRequestHandler):
                 headers=YF_HEADERS
             )
 
-            req.add_header("X-Kite-Version", "3")
+            req.add_header(
+                "X-Kite-Version",
+                "3"
+            )
 
             if api_key and api_token:
+
                 req.add_header(
                     "Authorization",
                     f"token {api_key}:{api_token}"
@@ -482,10 +600,15 @@ class SMCHandler(http.server.BaseHTTPRequestHandler):
 
             try:
 
-                with urllib.request.urlopen(req, timeout=12) as r:
+                with urllib.request.urlopen(
+                    req,
+                    timeout=12
+                ) as r:
+
                     body = r.read()
 
                 self.send_response(200)
+
                 self._cors()
 
                 self.send_header(
@@ -511,16 +634,24 @@ class SMCHandler(http.server.BaseHTTPRequestHandler):
             return
 
         # ─────────────────────────────────────────
-        # Unknown endpoint
+        # UNKNOWN ENDPOINT
         # ─────────────────────────────────────────
         self._json(404, {
+
             "error": "unknown endpoint",
+
             "available": [
+
                 "/",
+
                 "/health",
+
                 "/yahoo",
+
                 "/kite",
+
                 "/claude",
+
                 "/?url="
             ]
         })
@@ -541,21 +672,26 @@ class SMCHandler(http.server.BaseHTTPRequestHandler):
 
             ant_key = (
                 ANT_KEY
-                or self.headers.get("X-ANT-KEY", "")
+                or self.headers.get(
+                    "X-ANT-KEY",
+                    ""
+                )
             )
 
             if not ant_key:
 
                 self._json(400, {
                     "error":
-                        "Anthropic API key missing. "
-                        "Set ANT_KEY env var."
+                        "Anthropic API key missing"
                 })
 
                 return
 
             length = int(
-                self.headers.get("Content-Length", 0)
+                self.headers.get(
+                    "Content-Length",
+                    0
+                )
             )
 
             raw_body = (
@@ -575,7 +711,8 @@ class SMCHandler(http.server.BaseHTTPRequestHandler):
             except Exception:
 
                 self._json(400, {
-                    "error": "Invalid JSON body"
+                    "error":
+                        "Invalid JSON body"
                 })
 
                 return
@@ -583,14 +720,20 @@ class SMCHandler(http.server.BaseHTTPRequestHandler):
             if not prompt:
 
                 self._json(400, {
-                    "error": "Missing prompt"
+                    "error":
+                        "Missing prompt"
                 })
 
                 return
 
             payload = json.dumps({
-                "model": "claude-sonnet-4-20250514",
-                "max_tokens": 800,
+
+                "model":
+                    "claude-sonnet-4-20250514",
+
+                "max_tokens":
+                    800,
+
                 "messages": [
                     {
                         "role": "user",
@@ -600,9 +743,13 @@ class SMCHandler(http.server.BaseHTTPRequestHandler):
             }).encode("utf-8")
 
             req = urllib.request.Request(
+
                 "https://api.anthropic.com/v1/messages",
+
                 data=payload,
+
                 headers={
+
                     "Content-Type":
                         "application/json",
 
@@ -616,7 +763,11 @@ class SMCHandler(http.server.BaseHTTPRequestHandler):
 
             try:
 
-                with urllib.request.urlopen(req, timeout=30) as r:
+                with urllib.request.urlopen(
+                    req,
+                    timeout=30
+                ) as r:
+
                     resp = json.loads(r.read())
 
                 text = resp.get(
@@ -654,24 +805,19 @@ class SMCHandler(http.server.BaseHTTPRequestHandler):
 
             except Exception as e:
 
-                print(
-                    f"[Claude] Error: {e}",
-                    flush=True
-                )
-
                 self._json(502, {
                     "error": str(e)
                 })
 
             return
 
-        # Unknown POST
         self._json(404, {
-            "error": "unknown POST endpoint"
+            "error":
+                "unknown POST endpoint"
         })
 
     # ─────────────────────────────────────────────
-    # JSON helper
+    # JSON HELPER
     # ─────────────────────────────────────────────
     def _json(self, code, obj):
 
@@ -699,11 +845,14 @@ class SMCHandler(http.server.BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     # ─────────────────────────────────────────────
-    # CORS helper
+    # CORS
     # ─────────────────────────────────────────────
     def _cors(self):
 
-        origin = self.headers.get("Origin", "*")
+        origin = self.headers.get(
+            "Origin",
+            "*"
+        )
 
         self.send_header(
             "Access-Control-Allow-Origin",
@@ -732,7 +881,6 @@ class SMCHandler(http.server.BaseHTTPRequestHandler):
             "Origin"
         )
 
-
 # ─────────────────────────────────────────────────────
 # START SERVER
 # ─────────────────────────────────────────────────────
@@ -741,11 +889,16 @@ if __name__ == "__main__":
 
     print("=" * 55, flush=True)
 
-    print("  SMC Proxy v3.1", flush=True)
+    print("  SMC Proxy v4.0", flush=True)
 
     print(f"  http://localhost:{PORT}", flush=True)
 
     print("=" * 55, flush=True)
+
+    print(
+        "  Frontend       : smc_detector_v5.html",
+        flush=True
+    )
 
     print(
         "  Yahoo Finance  : crumb auth auto-managed",
@@ -768,7 +921,7 @@ if __name__ == "__main__":
 
     print("  Ctrl+C to stop\n", flush=True)
 
-    # Preload Yahoo crumb
+    # Background Yahoo preload
     threading.Thread(
         target=refresh_crumb,
         daemon=True
@@ -780,6 +933,7 @@ if __name__ == "__main__":
     )
 
     try:
+
         server.serve_forever()
 
     except KeyboardInterrupt:
